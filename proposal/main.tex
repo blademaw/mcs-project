@@ -1,0 +1,128 @@
+\documentclass[a4paper, titlepage, 12pt]{article}
+\usepackage[left=3cm, right=3cm, top=4cm, bottom=4cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage{setspace}
+\usepackage{color}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{soul}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
+\usepackage{graphicx}
+\setlength {\marginparwidth }{2cm}
+\usepackage[textwidth=2.5cm]{todonotes}
+
+% The following means texcount won't count the words in todonotes.
+%TC:macro \todo 1
+%TC:macro \hlnote 2
+
+% This redefines the \todo command to always have small text and 0.5 spacing
+\makeatletter
+\renewcommand{\todo}[2][]{%
+    \@todo[size=small, caption={#2}, #1]{\begin{spacing}{0.5}#2\end{spacing}}%
+} 
+\makeatother 
+
+% This makes it so I can highlight specific words with notes
+\makeatletter
+ \if@todonotes@disabled
+ \newcommand{\hlnote}[2]{#1}
+ \else
+ \newcommand{\hlnote}[2]{\todo{#2}\texthl{#1}}
+ \fi
+\makeatother
+
+% Some natbib configuration
+\usepackage[numbers,compress]{natbib}
+\usepackage{blindtext}
+\newcommand\newcite{\citet}	% to get "Author (Year)" with natbib
+
+% Using microtype for better formatting, apparently
+\AtBeginEnvironment{quote}{\par\singlespacing\small}
+\usepackage{microtype}
+
+% Macro to define quotations
+\newcommand{\q}[1]{``#1''}
+
+% Document information
+\newcommand{\thesisTitle}{Hybrid Agent-Based Modelling of Vector-Borne Diseases: Exploring the Effects of Human Behaviour and Risk Perception on Infection Dynamics}
+
+\newcommand{\name}{Jack Oliver}
+
+\newcommand{\timeFrame}{School of Computing and Information Systems}
+
+\newcommand{\school}{The University of Melbourne}
+
+\newcommand{\supervisor}{Associate Professor Nic Geard}
+
+\newcommand{\advisor}{Dr Cameron Zachreson}
+
+
+\setlength{\bibsep}{0.0pt}
+
+% For presenting the RQs nicely
+\newlist{questions}{enumerate}{2}
+\setlist[questions,1]{label=\textbf{RQ\arabic*.},ref=\textbf{RQ\arabic*}}
+\setlist[questions,2]{label=(\alph*),ref=\thequestionsi(\alph*)}
+
+% Bibliography style - can change in the future.
+\bibliographystyle{IEEEtranN}
+
+% Using double spacing throughout proposal.
+\doublespacing
+
+\begin{document}
+
+\begin{singlespace} % Single-space for the cover page
+\begin{titlepage}
+\begin{center}
+
+% ------------------------------------------------------------
+% TITLE PAGE
+% ------------------------------------------------------------
+
+\vspace*{1.5cm}
+
+\Large{\textbf{\thesisTitle}}
+
+\vspace{2.5cm}
+
+\large{\textbf{\name} (1389498) \\ Word count: X} \\
+\vspace{2cm}
+\large{A research proposal submitted for the Master of Computer Science minor thesis component \\}
+\vspace{.5cm}
+\large{in the} \\
+\large{\timeFrame} \\ 
+\large{\textbf{\school}}
+
+\vspace{2cm}
+
+\large{\textbf{Primary Supervisor}}\\
+\supervisor\\
+\vspace{1.5cm}
+
+\textbf{Co-Supervisor}\\
+\advisor\\
+\end{center}
+\end{titlepage}
+\end{singlespace}
+
+\tableofcontents
+\clearpage
+
+% ------------------------------------------------------------
+% CONTENT
+% ------------------------------------------------------------
+
+\input{sections/1_introduction}
+% \input{sections/2_approach}
+% \input{sections/3_timeline}
+% \input{sections/4_implications}
+
+\clearpage
+\bibliography{refs} % NOTE: this is my entire Zotero library.
+
+\end{document}
