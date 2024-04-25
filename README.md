@@ -43,7 +43,7 @@ python test_model.py
 ## Roadmap
 
 - [ ] Reproduce baseline model from Manore _et al._ (2015)[^2]
-    - [ ] Build first model version
+    - [X] Build first model version
     - [ ] Reproduce results from original paper
     - [ ] Tidy up codebase
 - [ ] Add `requirements.txt` to repository
