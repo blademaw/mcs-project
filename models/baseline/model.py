@@ -138,7 +138,12 @@ class BaselineModel(Model):
                 1: [],
                 2: []
             },
-            "r0": []
+            "r0": [],
+            "num_movements": 0,
+            "total_exposed": 0,
+            "total_infected": 0,
+            "total_recovered": 0,
+            "total_time_in_state": [0, 0, 0, 0],
         }
 
         # Initialise network — Erdos-Renyi with n, p
@@ -249,15 +254,19 @@ class MosquitoModel:
                  timestep: float,
                  solve_timestep: float
                 ):
-
         self.patch_id = patch_id
-        # self.S, self.E, self.I = N0*(1-init_prop), 0, N0*init_prop
+
+        # TODO: Figure out what the initial conditions are
+        self.S, self.E, self.I = N0*(1-init_prop), 0, N0*init_prop
         # self.S, self.E, self.I = .995*N0, 0, .005*N0
         # self.S, self.E, self.I = np.random.random()*K_v/3, np.random.random()*K_v/3, np.random.random()*K_v/3
         # [ self.S, self.E, self.I ] = np.random.random(size=3)*K_v/3
         # self.S, self.E, self.I = np.random.random()*K_v/2, np.random.random()*K_v/2, 0
         # self.S, self.E, self.I = 0, 0, np.random.random()*K_v*0.005
-        self.S, self.E, self.I = np.random.random()*K_v, 0, 0
+        # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
+
+        # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
+        self.S, self.E, self.I = K_v, 0, 0
 
 
         # n = N0/3
@@ -319,7 +328,9 @@ class BaselineMovementModel(MovementModel):
         
     def move_agent(self, agent, rho: float) -> None:
         """Move an agent with probability 1 - e^{- delta t * rho}"""
-        if np.random.random() < 1 - np.exp(-self.model.timestep*rho):
+        if np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
+            self.model.statistics["num_movements"] += 1
+
             # An agent moves to a connected node uniformly
             choices = self.model.graph.adj[agent.node]
 
@@ -353,6 +364,8 @@ class Agent:
         self.movement_rate  = movement_rate
         self.movement_model = movement_model
 
+        self.num_ticks_in_state = 0
+
 
     def move(self) -> None:
         """Moves the agent randomly."""
@@ -361,19 +374,29 @@ class Agent:
 
     def update_state(self, lambda_hj: float) -> None:
         """Updates agent SEIR states stochastically."""
+        self.num_ticks_in_state += 1
+
         r = np.random.random()
         match self.state:
             case DiseaseState.SUSCEPTIBLE:
                 if r < 1 - np.exp(- self.model.timestep * lambda_hj):
                     self.state = DiseaseState.EXPOSED
+                    self.num_ticks_in_state = 0
+                    self.model.statistics["total_exposed"] += 1
             case DiseaseState.EXPOSED:
+                self.model.statistics["total_time_in_state"][1] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.nu_h):
                     self.state = DiseaseState.INFECTED
+                    self.num_ticks_in_state = 0
+                    self.model.statistics["total_infected"] += 1
                     # NOTE: tracking
                     self.model.num_infected += 1
             case DiseaseState.INFECTED:
+                self.model.statistics["total_time_in_state"][2] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.mu_h):
                     self.state = DiseaseState.RECOVERED
+                    self.num_ticks_in_state = 0
+                    self.model.statistics["total_recovered"] += 1
             case _:
                 pass
 
@@ -517,7 +540,7 @@ class Patch:
         
         [self.S_h, self.E_h, self.I_h, self.R_h] = seirs
         [self.S_hat_h, self.E_hat_h, self.I_hat_h, self.R_hat_h] = seirs_hat
-        
+
         m = self.mosquito_model # for brevity
         
         self.b   = (self.sigma_v * m.N_v * self.sigma_h * self.N_hat_h)/(self.sigma_v * m.N_v + self.sigma_h * self.N_hat_h)
@@ -546,23 +569,12 @@ class Patch:
 
             seirs     += cur_seirs
             seirs_hat += node.activity.alpha * cur_seirs
-        
-        # print(self.k, seirs, seirs_hat)
+
         self.model.statistics["num_infected"][self.k].append(seirs[2])
         return seirs, seirs_hat
-    
-    
+
+
     def get_force_on_vectors(self) -> float:
         """Calculate the force of infection on vectors for this patch (lambda_v)."""
         return self.b_v * self.beta_vh * (self.I_hat_h/self.N_hat_h)
-
-
-
-
-
-
-
-
-
-
 
