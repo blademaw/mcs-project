@@ -44,7 +44,7 @@ python test_model.py
 
 - [ ] Reproduce baseline model from Manore _et al._ (2015)[^2]
     - [X] Build first model version
-    - [ ] Reproduce results from original paper
+    - [ ] Build script to reproduce figures from original paper
     - [ ] Tidy up codebase
 - [ ] Add `requirements.txt` to repository
 - [ ] Extend model to include preventive behaviours

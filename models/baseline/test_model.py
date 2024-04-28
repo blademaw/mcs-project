@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
-
 from tqdm import tqdm
+
 from model import *
-
-# from joblib import Parallel, delayed
-
 
 def generate_baseline():
     return BaselineModel(

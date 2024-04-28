@@ -1,24 +1,11 @@
-import numpy as np
-import networkx as nx
+from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Any, Callable, List, Set
+
+import networkx as nx
+import numpy as np
 from scipy import integrate
 from tqdm import tqdm
-
-from abc import ABC, abstractmethod
-from typing import Callable, List, Any, Set
-
-
-# STATS = {
-#     "patch_ticks": 0,
-#     "lambda_hj": [],
-#     "lambda_v": [],
-#     "patch1": [],
-#     "num_infected": {
-#         0: [],
-#         1: [],
-#         2: []
-#     }
-# }
 
 
 class DiseaseState(Enum):
@@ -255,23 +242,9 @@ class MosquitoModel:
                  solve_timestep: float
                 ):
         self.patch_id = patch_id
-
-        # TODO: Figure out what the initial conditions are
-        self.S, self.E, self.I = N0*(1-init_prop), 0, N0*init_prop
-        # self.S, self.E, self.I = .995*N0, 0, .005*N0
-        # self.S, self.E, self.I = np.random.random()*K_v/3, np.random.random()*K_v/3, np.random.random()*K_v/3
-        # [ self.S, self.E, self.I ] = np.random.random(size=3)*K_v/3
-        # self.S, self.E, self.I = np.random.random()*K_v/2, np.random.random()*K_v/2, 0
-        # self.S, self.E, self.I = 0, 0, np.random.random()*K_v*0.005
-        # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
-
-        # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
         self.S, self.E, self.I = K_v, 0, 0
 
-
-        # n = N0/3
-        # self.S, self.E, self.I = n*(1-init_prop), 0, n*init_prop
-        self.N_v = self.S + self.E + self.I
+        self.N_v = K_v
         self.K_v = K_v
         self.phi_v = phi_v
         self.r_v = r_v
