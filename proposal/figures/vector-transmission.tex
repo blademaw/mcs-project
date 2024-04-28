@@ -1,0 +1,33 @@
+\begin{figure}[h]
+\centering
+
+\begin{tikzpicture}[node distance=1cm, auto,
+                >=Latex, 
+                every node/.append style={align=center, font=\small},
+                int/.style={draw, thick}]
+
+\input{figures/svg-commands}
+
+\node[] (u-v) at (0,0) {Uninfected\\vector};
+\node[below right=2.5cm of u-v] (i-h) {Infected\\host};
+\node[below left=2.5cm of i-h] (i-v) {Infected\\vector};
+\node[below left=2.5cm of u-v] (u-h) {Uninfected\\host};
+
+\coordinate[above=1.5cm of i-h] (i-h2);
+
+\path[->,thick,bend left]
+    (u-v) edge node[font=\footnotesize] {bites} (i-h2)
+    (i-h) edge node[font=\footnotesize] {infects} (i-v)
+    (i-v) edge node[font=\footnotesize] {bites} (u-h);
+\path[->,thick] (u-h) edge node[font=\footnotesize] {becomes} (i-h);
+
+\drawmosquitoat{-.7}{2.2}{s-color}
+\drawmosquitoat{-.6}{-3.35}{i-color}
+\drawagentat{2.95}{-.95}{i-color}{.4}
+\drawagentat{-4.55}{-.95}{s-color}{.4}
+
+\end{tikzpicture}
+
+\bcaption{Human-vector disease transmission for dengue.}{Hosts are infected by infectious mosquitoes, and mosquitoes are infected by infectious hosts. Adapted from \citet{krzhizhanovskaya_agent-based_2020}.}
+\label{fig:transmission-diagram}
+\end{figure}

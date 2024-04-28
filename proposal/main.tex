@@ -1,19 +1,56 @@
 \documentclass[a4paper, titlepage, 12pt]{article}
-\usepackage[left=3cm, right=3cm, top=4cm, bottom=4cm]{geometry}
+\usepackage[left=3cm, right=3cm, top=3cm, bottom=3cm]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{mathptmx}
+\usepackage[toc,titletoc,title]{appendix}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{derivative}
+% \usepackage{mathptmx} % Not sure if I like this font.
 \usepackage{setspace}
 \usepackage{color}
-\usepackage{caption}
-\usepackage{subcaption}
 \usepackage{soul}
 \usepackage{enumitem}
 \usepackage{array}
 \usepackage[hidelinks]{hyperref}
+\usepackage{adjustbox}
+
+% Graphics and TikZ stuff
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{caption}
+\usepackage{subcaption}
+\usetikzlibrary{calc}
+\usepackage{blindtext}
+\usetikzlibrary{intersections}
+\tikzset{>=latex} % for LaTeX arrow head
+\tikzstyle{curve}=[very thick,line cap=round]
+% \tikzstyle{dashed curve}=[curve,thick,dashed]
+\pgfdeclarelayer{back} % to draw on background
+\pgfsetlayers{back,main} % set order
+\usepackage{ifthen}
+\usetikzlibrary{shapes.geometric}
+
+% Caption setup
+\captionsetup[figure]{font=small, labelfont=bf, labelsep=period}
+\captionsetup[table]{font=small, labelfont=bf, labelsep=period}
+\newcommand{\bcaption}[2]{\caption{\textbf{#1} #2}}
+
+% Custom colours for diagrams etc.
+\definecolor{s-color}{HTML}{41949A}
+\definecolor{i-color}{HTML}{E56E5A}
+\definecolor{r-color}{HTML}{7384BB}
+
+% Prefer roman numeral subfigures
+\renewcommand\thesubfigure{\roman{subfigure}}
+
+% Fix todo notes / annotation margins
 \setlength {\marginparwidth }{2cm}
-\usepackage[textwidth=2.5cm]{todonotes}
+% \usepackage[textwidth=2.5cm]{todonotes}
+\usepackage[textwidth=2.5cm,disable]{todonotes}
 
 % The following means texcount won't count the words in todonotes.
 %TC:macro \todo 1
@@ -35,10 +72,19 @@
  \fi
 \makeatother
 
-% Some natbib configuration
-\usepackage[numbers,compress]{natbib}
-\usepackage{blindtext}
-\newcommand\newcite{\citet}	% to get "Author (Year)" with natbib
+% Some bibliography configuration
+% \usepackage[numbers,compress,sort]{natbib}
+% \newcommand\newcite{\citet}	% to get "Author (Year)" with natbib
+\usepackage[bibstyle=ieee, citestyle=numeric-comp, url=false]{biblatex}
+% \usepackage[style=ieee, citecounter=true]{biblatex}
+\newcommand{\citet}{\textcite}
+\addbibresource{refs.bib} 
+\renewcommand*{\bibfont}{\small}
+
+% \renewcommand{\finentrypunct}{%
+%   \addperiod\space
+%   (Cited \arabic{citecounter}~time\ifnumequal{\value{citecounter}}{1}{}{s})%
+% }
 
 % Using microtype for better formatting, apparently
 \AtBeginEnvironment{quote}{\par\singlespacing\small}
@@ -48,7 +94,7 @@
 \newcommand{\q}[1]{``#1''}
 
 % Document information
-\newcommand{\thesisTitle}{Agent-Based Modelling of Vector-Borne Diseases: Exploring the Effects of Risk Perception and Human Behaviour on Infection Dynamics}
+\newcommand{\thesisTitle}{Simulating the Effects of Risk Perception and Human Behaviour on a Vector-borne Disease with Agent-based Modelling}
 
 \newcommand{\name}{Jack Oliver}
 
@@ -60,8 +106,10 @@
 
 \newcommand{\advisor}{Dr Cameron Zachreson}
 
+\newcommand{\wordcount}{6,088}
 
-\setlength{\bibsep}{0.0pt}
+
+% \setlength{\bibsep}{0.0pt}
 
 % For presenting the RQs nicely
 \newlist{questions}{enumerate}{2}
@@ -69,13 +117,14 @@
 \setlist[questions,2]{label=(\alph*),ref=\thequestionsi(\alph*)}
 
 % Bibliography style - can change in the future.
-\bibliographystyle{IEEEtranN}
+% \bibliographystyle{agu}
 
 % Using double spacing throughout proposal.
 \doublespacing
 
 \begin{document}
 
+%TC:ignore
 \begin{singlespace} % Single-space for the cover page
 \begin{titlepage}
 \begin{center}
@@ -84,13 +133,14 @@
 % TITLE PAGE
 % ------------------------------------------------------------
 
+
 \vspace*{1.5cm}
 
 \Large{\textbf{\thesisTitle}}
 
 \vspace{2.5cm}
 
-\large{\textbf{\name} (1389498) \\ Word count: X} \\
+\large{\textbf{\name} (1389498) \\ Length: {\wordcount} words} \\
 \vspace{2cm}
 \large{A research proposal submitted for the Master of Computer Science minor thesis component \\}
 \vspace{.5cm}
@@ -110,19 +160,41 @@
 \end{titlepage}
 \end{singlespace}
 
-\tableofcontents
+\begin{spacing}{1.5}
+    \tableofcontents
+\end{spacing}
 \clearpage
 
 % ------------------------------------------------------------
 % CONTENT
 % ------------------------------------------------------------
 
+%TC:endignore
 \input{sections/1_introduction}
-% \input{sections/2_approach}
-% \input{sections/3_timeline}
-% \input{sections/4_implications}
-
 \clearpage
-\bibliography{refs} % NOTE: this is my entire Zotero library.
+
+\input{sections/2_related_work}
+\clearpage
+
+\input{sections/3_approach}
+% \clearpage
+
+\input{sections/4_timeline}
+% \clearpage
+
+\input{sections/5_implications}
+\clearpage
+
+% \bibliography{refs} % NOTE: this is my entire Zotero library.
+\begin{singlespace}
+\printbibliography[heading=bibintoc]
+\end{singlespace}
+\clearpage
+
+%TC:ignore
+\appendix
+\appendixpage
+\input{appendices/appendix_1_manore-abm}
+%TC:endignore
 
 \end{document}

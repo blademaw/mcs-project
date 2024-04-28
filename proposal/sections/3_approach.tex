@@ -1,0 +1,70 @@
+\section{Approach}\label{sec:approach}
+
+In this research, I aim to address the identified research gaps through a project consisting of two phases. The first phase will answer \ref{rq1}, and the second will address \ref{rq2}. The methods for both of these phases are described in the following sections.
+
+\subsection{Phase 1: Behavioural theory comparison}
+
+The first phase of this project will address \ref{rq1} by conducting a systematic comparison of different psychological behavioural theories encoded in an existing ABM. The research objectives for this phase are given in Section~\ref{sec:research-aims}. In the following sections, I first describe the foundational model for the project and the extensions I aim to implement. Then, I cover the experiments to be carried out and the behavioural theories to be examined. Finally, I discuss how results will be analysed to answer the research question.
+
+\subsubsection{Baseline model}\label{sec:baseline-model}
+
+I will extend the ABM from \citet{manore_network-patch_2015} covered above to incorporate risk perception, preventive measures, and agent decision-making processes. Currently, I have implemented the baseline model locally\footnote{A live repository for the code is available at \url{https://github.com/blademaw/mcs-project}}, and I am in the process of validating the model to reproduce results from the original authors. The baseline model provides a solid foundation for VBD spread and a mobile host population on a network-patch architecture---a diagrammatic representation of the model's architecture is given in Figure~\ref{fig:manore-abm}. Before explaining the steps to extend the model, I first describe the ABM in greater detail to outline features of the model that can be augmented.
+
+\input{figures/network-patch-architecture-fig}
+
+The agent-based component of the baseline model consists of agents (also referred to as humans or hosts) that move randomly throughout a network. Each node on the network is an activity the agent is assumed to be engaged in during a given time step. Activities affect properties of agents, such as movement propensity and susceptibility to infection---for example, agents in a \q{shopping} node may have a lower infection risk due to being in an indoor environment with air conditioning, whereas agents in \q{recreational} nodes may be outdoors and have a higher exposure to mosquitoes. Agents move between activities (nodes) based on an underlying movement model. Each node is associated with an environmental patch $k$, representing the density of mosquitoes in that area. \citet{manore_network-patch_2015} derive the properties of these patches based on \q{environmental properties correlated with the mosquito's life cycle,} and the density of vector populations through biotic (e.g. vegetation) and abiotic (e.g. temperature and humidity) factors.
+
+Each mosquito patch $k$ has associated parameters that characterise the progressive dynamics for a vector population in a compartmental SEI (Susceptible, Exposed, Infected) model. The SEI model for mosquitoes is defined by the following system of ODEs:
+\begin{equation} \label{eq:mosquito}
+\begin{split}
+\odv{S_v}{t}&=h(N_v, t)-\lambda_v(t) S_v - \mu_v S_v \\[5pt]
+\odv{E_v}{t}&=\lambda_v(t) S_v - \nu_v E_v - \mu_v E_v \\[5pt]
+\odv{I_v}{t}&=\nu_v E_v - \mu_v I_v
+\end{split}
+\end{equation}
+
+where $h(N_v,t)$ is the per-capita emergence function of mosquitoes at time $t$ and $\lambda_v(t)$ is the average \textit{force of infection} on mosquitoes at time $t$ (the subscript $v$ is used to denote vector-specific values). The average latent period until vectors become infectious after being exposed is $1/\nu_v$, and $1/\mu_h$ is the average vector lifespan. \citet{manore_network-patch_2015} specify their model such that one time step is six hours. The time-dependent functions above depend on a number of underlying parameters (see Appendix~\ref{appendix:manore-abm} for a full description) which are varied depending on the geographical and environmental properties of each patch $k$. For example, patch 3 in Figure~\ref{fig:manore-abm} may have a larger vector carrying capacity than other patches because of swamp-like environmental features that can support a larger vector population. In addition to $\lambda_v$, which represents the rate at which vectors are infected, $\lambda_{h,j}$ defines the force of infection on hosts (where subscript $h$ denotes hosts, and $j$ denotes the activity). These are the salient parameters that couple the vector model with the agent-based submodel during each time step, influencing rates of infection in vector and host populations. For agents, an SEIR compartmental model is used, with the following transition probabilities:
+
+\begin{equation} \label{eq:agents}
+    \begin{aligned}
+    \mathbb{P}(S_h\to E_h)&=1-e^{-\Delta t \lambda_{h,j}} \\
+    \mathbb{P}(E_h\to I_h)&=1-e^{-\Delta t \nu_h} \\
+    \mathbb{P}(I_h\to R_h)&=1-e^{-\Delta t \gamma}
+    \end{aligned}
+\end{equation}
+
+where $\Delta t$ is the total time the agent has spent in the activity so far, $1/\nu_h$ is the average latent period for hosts, and 1/$\gamma$ is the average infectious period.
+
+Preventive measures in the model will directly and indirectly affect parameters that influence infection. For example, in the baseline model, $\sigma_h$ is the number of bites a host can sustain over a given time and $\sigma_h\propto\lambda_{h,j}$. Interventions such as long-sleeved clothing would directly lower $\sigma_h$, and thus lower infections for agents. Similarly, mosquito coils or bed nets in the \q{home} activity could lower agents' exposure to vectors. Interventions that are wider in scale could involve insecticide spraying that increases $\mu_v$, the per-capita vector death rate for a specific patch. Preventive measures could also indirectly affect infection---for example, removing stagnant water sources may lower the sustainable vector population in a patch, and thus indirectly lower infection rates. The movement model for agents with high levels of risk perception could also be altered to lower their probability of travelling to outdoor activities, as spending less time outdoors has been shown to be a preventive behaviour for VBD epidemics \cite{duval_how_2022}.
+
+To incorporate risk perception and behaviour into the baseline model, agents will be influenced by environmental and social processes that are inputs to behavioural submodels. Agents will \textit{sense} their surrounding environment by detecting influential factors supported by the literature, such as mosquito prevalence, the number of bites an agent has, and rainfall \cite{raude_public_2012, lopes-rafegas_contribution_2023}. Social norms have also been shown to drive risk perception \cite{lopes-rafegas_contribution_2023}, meaning the behaviour of an agent's immediate contacts could inform their own perceptions of the disease. These inputs will vary depending on the embedded behavioural theory that determines preventive measure adoption.
+
+\subsubsection{Experiments}
+
+The experiments for this phase will be to encode three behavioural theories and analyse their impacts on preventive measure adoption and disease spread. The three behavioural theories are the Health Belief Model (HBM), Protection Motivation Theory (PMT), and COM-B. The HBM and PMT were chosen due to being established models in epidemiological studies for analysing preventive behaviours. COM-B was chosen due to its novelty and goal to address the limitations of existing behavioural theories, alongside the fact that COM-B has not yet been encoded within an ABM.
+
+Encoding each behavioural theory means creating a computational representation of each psychological model. To do this, I will follow a similar method to \citet{abdulkareem_intelligent_2018}, who make the implementation as similar to the theoretical model as possible, with the inputs being agent- and environment-dependent properties, and the output being a decision of whether to adopt preventive measures or not. These implementations will vary across theories: for example, the HBM and PMT both include perceived susceptibility and disease severity \cite{champion_health_2015, norman_protection_2015}, whereas COM-B does not---instead, the most fitting component within the COM-B model for risk perception is arguably \textit{motivation}. It should be noted that while prior work exists around computationally encoding psychological behavioural theories, research in this area is sparse, meaning the design and execution of representing the behavioural models will be a core contribution and component of this project. Once I build computational representations for these behavioural theories, I will compare the differences in model output and dynamics through the analysis described below.
+
+\subsubsection{Analysis}
+
+My goal in the first phase of the project is to determine whether different behavioural theories lead to different dynamics in disease spread and preventive behaviours. To accomplish this, I will first use visualisation methods to explore how preventive measure adoption and disease spread evolve over time. Second, to provide an objective answer to the research question, I will use statistical methods to test the null hypothesis that different behavioural theories have no impact on model dynamics. I will follow a similar method to \citet{hunter_hybrid_2020}, who use the Wilcoxon rank-sum test (also called the Mann-Whitney $U$ test) to compare distributions of outbreak size after a certain amount of time has passed in their model. In the context of this proposed research, I will compare distributions of model statistics across the three modelled behavioural theories (i.e., HBM vs PMT, HBM vs COM-B, PMT vs COM-B).
+
+Once I form a perspective on \ref{rq1}, to progress to the next phase of the project, I will identify the behavioural theory that most closely reproduces empirical trends from VBD studies. To do this, I will use pattern-oriented modelling techniques \cite{gallagher_theory_2021} to simulate hypothetical simulations and ensure the changes in model output reflect those observed by VBD studies. Examples will include altering water source prevalence \cite{molyneux_patterns_1997}, land use changes (urbanisation), climatic and weather-related factors, and others \cite{swei_patterns_2020}.
+
+
+\subsection{Phase 2: Simulated community-based interventions}
+
+The second phase of this project will address \ref{rq2} by simulating multiple CBIs within the chosen model from the previous phase. The research objectives for the second phase are listed in Section~\ref{sec:research-aims}. In the following sections, I present the experiments necessary to meet these objectives, and describe what the prospective analysis will cover to answer the research question.
+
+\subsubsection{Experiments}
+
+The experiments for this phase will be to implement and simulate CBIs that affect agents either directly or indirectly through their surrounding environments. The simulated CBIs will affect the components of agents' behavioural decision-making theories to varying degrees. For example, an educational campaign about the risks of VBDs may increase individuals' perceived severity in the case of the HBM or PMT, or \textit{reflective motivation} in COM-B (the conscious deliberation of whether the disease is sufficiently dangerous to warrant a preventive measure) \cite{michie_behaviour_2011}. A clean-up program that encourages removing stagnant water sources may indirectly lower risk perception if agents remove enough water sources to dampen vector populations, and subsequently observe a lower vector prevalence. I will select one or more CBIs based on interventions used by previous studies, such as those from \citet{tapia-conyer_community_2012}, \citet{rivera_adoption_2023}, and \citet{perez_realist_2021}.
+
+Although the follow-up time for assessing CBI efficacy varies among VBD studies, I will examine the impacts of CBIs after 3, 6, and 12 months to examine their short- and long-term impacts. I will also investigate important factors of CBIs, such as the timeliness of CBIs, which will be examined by varying administration periods relative to disease growth, and participation or engagement, which will depend on how each CBI influences the environment of agents. Ultimately, the experiments should reveal characteristics of successful CBIs that are useful to the ongoing challenges of VBD control.
+
+\subsubsection{Analysis}
+
+My goal in the second phase of the project is to determine the efficacy and impacts of different CBIs. I will create several visualisations to examine model dynamics, such as the adoption of preventive measures over time for different CBIs, and the distribution of infected agents within specific time periods. This is a similar approach to \citet{selvaraj_vector_2020}, who simulate the distribution of insecticide-treated nets and use visualisation techniques to analyse the impacts on vector populations. The data from simulated CBIs will also allow the hypotheses described in Section~\ref{sec:risk-perception} to be explored and tested in the context of the chosen behavioural theory.
+
+The efficacy of a CBI is multifaceted---some CBIs can increase knowledge and have little effect on preventive measure adoption \cite{sulistyawati_dengue_2019}, while some CBIs can boost participation rates in the short-term but be unsustainable in the long run \cite{tapia-conyer_community_2012, rivera_adoption_2023, winch_effectiveness_1992}. Therefore, during the analysis within the second phase, it is important to understand the impacts not only on preventive behaviours, but also on the long-term sustainability of CBIs and how participation translates into measurable disease control.
+

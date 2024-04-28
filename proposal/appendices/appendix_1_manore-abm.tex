@@ -1,0 +1,61 @@
+\section{Baseline model description}\label{appendix:manore-abm}
+
+In this appendix, I provide a brief description of the hybrid ABM for VBD spread from \citet{manore_network-patch_2015} for completeness. 
+
+
+As described in Section~\ref{sec:baseline-model}, the dynamics for vector populations in the compartmental SEI model are given by the system of ODEs in \eqref{eq:mosquito}, where these equations represent a single population of vectors in patch $k$. It should be noted that each model of vector dynamics is patch-specific, though this is not denoted by any notation unless specified for emphasis. In the vector model, the rate of per-capita emergence, $h(N_v,t)$, the force of infection on vectors, $\lambda_v(t)$, and the force of infection on hosts, $\lambda_{h,j}(t)$, are comprised of various underlying parameters, which are described below.
+
+The rate of per-capita vector emergence is defined as:
+
+\begin{equation}
+h(N_v,t)=N_v\left(\psi_v - \frac{r_v N_v}{K_v}\right)
+\end{equation}
+
+where $\psi_v$ is the natural per-capita emergence rate of vectors, $r_v=\psi_v-\mu_v$ is the intrinsic growth rate of vectors, and $K_v$ is the carrying capacity of vectors for the patch in question.
+
+The force of infection on vectors is dependent on the rate of contact (biting) between hosts and vectors. This is an interaction that couples the ABM and EBM components of the hybrid model from \citet{manore_network-patch_2015}. To derive a force of infection on vectors, the number of bites between vectors and hosts is first calculated as:
+
+\begin{equation}\label{eq:bites}
+    b^{(k)}=\frac{\sigma_v N_v \sigma_h \hat{N}_h}{\sigma_v N_v + \sigma_h \hat{N}_h}
+\end{equation}
+
+where the superscript $(k)$ denotes the $k^{\text{th}}$ patch, $\sigma_v$ is the total number of bites a vector would yield if hosts were freely available, and $\sigma_h$ is the number of bites a host can sustain in a given time. Here, $\hat{N}_h=\sum_j{\alpha_j N^{(k)}_{h,j}}$ is the number of agents in the patch scaled by their exposure amount $\alpha_j$ according to their current activity $j$.
+
+Naturally, the biting rates for hosts and vectors are derived from \eqref{eq:bites}. The number of bites per vector is given by $b^{(k)}_v=b^{(k)}/N_v$, and the average number of bites per host is given by $b_{h,j}^{(k)}=b^{(k)}/\hat{N}_h$. These biting rates are used to derive the force of infection on vectors and hosts based on the probability of disease transmission. The force of infection on vectors is given by:
+
+\begin{equation}
+    \lambda_v=b^{(k)}_v\cdot \beta_{vh}\cdot \left( \frac{\hat{I}_h}{\hat{N}_h} \right)
+\end{equation}
+where $\beta_{vh}$ is the probability of disease transmission from an infectious host to a vector, and $\hat{I}_h=\sum_j{\alpha_j I^{(k)}_{h,j}}$ is the scaled number of infectious hosts in the patch according to activity vector exposure. This value is used in the patch model \eqref{eq:mosquito}, coupling the patch and agent network models. The other direction of infection, from vector to host, is described by:
+
+\begin{equation}
+    \lambda_{h,j}=\alpha_jb^{(k)}_h\cdot \beta_{hv} \cdot \left(\frac{I_v}{N_v}\right)
+\end{equation}
+where $\beta_{hv}$ is the probability of disease transmission from an infectious vector to a host. Due to different exposure levels to vectors, the force of infection on hosts is specific to activities of agents, whereas the patch models of vectors encompass multiple activities.
+
+
+As detailed in Section~\ref{sec:baseline-model}, the probabilities for progression through the agent SEIR disease states are transformations of agent-specific parameters, including $\lambda_{h,j}$. During each time step, agents progress from some disease state (S, E, or I) to another (E, I, or R) with some probability $p_j$. This is implemented in the ABM by the generation of a uniform random number $\theta\sim U[0,1]$, and the agent is progressed to the next disease state if $\theta < p_j$.
+
+Table~\ref{table:manore-params} details the list of parameters used in the baseline model, and their interpretations.
+
+\begin{table}[h]
+    \centering
+    \begin{adjustbox}{center}
+        \footnotesize
+        \begin{tabular}{cll} \toprule
+            {Parameter} & {Description} & {Units} \\ \midrule
+            $\psi_v$  & Per-capita emergence rate of vectors & vectors$/$time \\
+            $\mu_v$  & Per-capita death rate of vectors  & vectors$/$time \\
+            $K_v$  & Carrying capacity of vectors in the patch  & vectors \\
+            $\sigma_v$  & Ideal number of bites a vector can carry out, if hosts were freely available  & bites$/$time \\
+            $\sigma_h$  & Maximum number of bites a host can sustain in a given time period & bites$/$time \\
+            $\beta_{vh}$  & Probability of disease transmission from an infectious host to a susceptible vector  & dimensionless \\
+            $\beta_{hv}$  & Probability of disease transmission from an infectious vector to a susceptible host  & dimensionless \\
+            $\nu_v$  & Rate of progression of vectors from the exposed (E) state to the infectious (I) state  & time$^{-1}$ \\
+            $\nu_h$  & Rate of progression of hosts from the exposed (E) state to the infectious (I) state  & time$^{-1}$ \\
+            $\gamma$ & Rate of recovery for hosts   & time$^{-1}$ \\ \bottomrule
+        \end{tabular}
+    \end{adjustbox}
+    \bcaption{Parameters for the vector model.}{Adapted and expanded from \citet{manore_network-patch_2015}.}
+    \label{table:manore-params}
+\end{table}

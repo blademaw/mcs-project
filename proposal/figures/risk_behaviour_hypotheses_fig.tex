@@ -1,0 +1,31 @@
+\begin{figure}[h]
+\centering
+
+\begin{tikzpicture}[node distance=1cm, auto,
+                >=Latex, 
+                every node/.append style={align=center, font=\small},
+                int/.style={draw, thick}]
+
+\node (prt1) {\textbf{Perceived risk}\\at time $t$};
+\node[right=5cm of prt1] (prt2) {\textbf{Perceived risk}\\at time $t+1$};
+\node[below=3cm of prt1] (pbt1) {\textbf{Preventive}\\\textbf{behaviour}\\at time $t$};
+\node[below=3cm of prt2] (pbt2) {\textbf{Preventive}\\\textbf{behaviour}\\at time $t+1$};
+
+\path[->, very thick] (prt1) edge node {$+$} (prt2)
+    (prt1) edge node {$+$} (pbt2)
+    (pbt2) edge node [align=right,font=\itshape] {Risk\\reappraisal\\hypothesis} (prt2)
+    (pbt1) edge[dashed] node {$+$} (pbt2);
+\path[<->, very thick]
+    (pbt2) edge[bend right, in=-120, out=-60] node {$-$} (prt2)
+    (prt1) edge[dashed, bend right,left] node [align=right,font=\itshape] {Accuracy\\hypothesis} (pbt1);
+
+\node[align=left,font=\itshape] at (1.8,-2.2) {Behaviour\\motivation\\hypothesis};
+\node[align=left,font=\itshape] at (11, -2) {Accuracy\\hypothesis};
+\node at (8.3, -2) {$-$};
+\node at (-.45, -2) {$-$};
+
+\end{tikzpicture}
+
+\bcaption{Risk perception and behaviour hypotheses.}{Dashed pathways are included for completeness but not described. Straight lines indicate causal relationships, curved lines are non-causal. Signs ($+$ or $-$) indicate positive and negative influences respectively---for example, the risk reappraisal hypothesis is represented by a negative causal relationship from preventive behaviour to risk perception. Conversely, the accuracy hypothesis is represented by a negative non-causal relationship to convey that higher levels of risk perception accompany lower rates of preventive behaviour. Adapted from \citet{brewer_risk_2004}.}
+\label{fig:risk_hypotheses}
+\end{figure}
