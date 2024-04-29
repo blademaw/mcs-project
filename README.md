@@ -44,10 +44,11 @@ python test_model.py
 
 - [ ] Reproduce baseline model from Manore _et al._ (2015)[^2]
     - [X] Build first model version
-    - [ ] Build script to reproduce figures from original paper
+    - [X] Build script to reproduce figures from original paper
     - [ ] Tidy up codebase
 - [ ] Add `requirements.txt` to repository
 - [ ] Extend model to include preventive behaviours
+    - [ ] Build proof of concept to introduce preventive measures
 - [ ] Computationally encode behavioural frameworks
     - [ ] Build script to test impacts of these
 - [ ] Represent one or more community-based interventions in the ABM
