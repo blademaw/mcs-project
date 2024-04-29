@@ -125,6 +125,12 @@ class BaselineModel(Model):
                 1: [],
                 2: []
             },
+            "agent_disease_counts": [
+                    [0] * int(self.total_time/self.timestep),
+                    [0] * int(self.total_time/self.timestep),
+                    [0] * int(self.total_time/self.timestep),
+                    [0] * int(self.total_time/self.timestep)
+                ],
             "r0": [],
             "num_movements": 0,
             "total_exposed": 0,
@@ -190,6 +196,7 @@ class BaselineModel(Model):
                            initial_infect_proportion])
 
         self.num_infected += np.array([agent.state==DiseaseState.INFECTED for agent in self.agents]).sum()
+        self.statistics["total_infected"] += self.num_infected
 
 
     def tick(self) -> List[Any]:
@@ -242,7 +249,9 @@ class MosquitoModel:
                  solve_timestep: float
                 ):
         self.patch_id = patch_id
-        self.S, self.E, self.I = K_v, 0, 0
+        # self.S, self.E, self.I = K_v/2 + np.random.random()*K_v/2, 0, 0
+        # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
+        self.S, self.E, self.I = .25*K_v + np.random.random()*K_v*.75, 0, 0
 
         self.N_v = K_v
         self.K_v = K_v
@@ -350,13 +359,17 @@ class Agent:
         self.num_ticks_in_state += 1
 
         r = np.random.random()
+        time_ind = int(self.model.time/self.model.timestep)
+
         match self.state:
             case DiseaseState.SUSCEPTIBLE:
+                self.model.statistics["agent_disease_counts"][0][time_ind] += 1
                 if r < 1 - np.exp(- self.model.timestep * lambda_hj):
                     self.state = DiseaseState.EXPOSED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_exposed"] += 1
             case DiseaseState.EXPOSED:
+                self.model.statistics["agent_disease_counts"][1][time_ind] += 1
                 self.model.statistics["total_time_in_state"][1] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.nu_h):
                     self.state = DiseaseState.INFECTED
@@ -365,11 +378,14 @@ class Agent:
                     # NOTE: tracking
                     self.model.num_infected += 1
             case DiseaseState.INFECTED:
+                self.model.statistics["agent_disease_counts"][2][time_ind] += 1
                 self.model.statistics["total_time_in_state"][2] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.mu_h):
                     self.state = DiseaseState.RECOVERED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_recovered"] += 1
+            case DiseaseState.RECOVERED:
+                self.model.statistics["agent_disease_counts"][3][time_ind] += 1
             case _:
                 pass
 

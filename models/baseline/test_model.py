@@ -85,7 +85,7 @@ def generate_low():
 
 # NOTE: parameters have been verified.
 if __name__ == "__main__":
-    reps = 50
+    reps = 10
     dist = []
 
     if reps == 1:
@@ -126,6 +126,8 @@ if __name__ == "__main__":
 
         print(res)
     else:
+        inf_amts = []
+
         patch_time_peaks = [[], [], []]
 
         for _ in tqdm(range(reps)):
@@ -136,9 +138,11 @@ if __name__ == "__main__":
             for i in range(3):
                 patch_time_peaks[i].append(np.argmax(temporal["num_infected"][i])/4)
             dist.append(res[0])
+            inf_amts.append(temporal["total_infected"])
 
         print("Number of infected hosts throughout simulation:")
         print(dist)
+        print("or", np.mean(inf_amts), np.std(inf_amts))
         dist = np.array(dist)
         print("Average number of infected hosts:", dist.mean(), "±", dist.std())
 
