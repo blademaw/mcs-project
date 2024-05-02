@@ -3,3 +3,4 @@
 *.py[cod]
 *$py.class
 .ipynb_checkpoints
+**/saved_runs/

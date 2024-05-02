@@ -5,6 +5,7 @@ from typing import Any, Callable, List, Set
 import networkx as nx
 import numpy as np
 from scipy import integrate
+from scipy.stats import truncnorm
 from tqdm import tqdm
 
 
@@ -112,6 +113,8 @@ class BaselineModel(Model):
         self.agents:  List[Agent] = np.full(num_agents, None, dtype=Agent)
         self.nodes:   List[Node]  = np.full(num_locations, None, dtype=Node)
         self.patches: List[Patch] = np.full(k, None, dtype=Patch)
+
+        self.K_v_arr = K_v_arr
         
         # NOTE: tracking
         self.num_infected = 0
@@ -137,6 +140,8 @@ class BaselineModel(Model):
             "total_infected": 0,
             "total_recovered": 0,
             "total_time_in_state": [0, 0, 0, 0],
+            "patch_sei": {0: np.zeros((int(total_time/timestep), 3)), 1: np.zeros((int(total_time/timestep), 3)), 2: np.zeros((int(total_time/timestep), 3))},
+            "node_seir": {i: [] for i in range(num_locations)},
         }
 
         # Initialise network — Erdos-Renyi with n, p
@@ -246,12 +251,13 @@ class MosquitoModel:
                  nu_v: float,
                  time: float,
                  timestep: float,
-                 solve_timestep: float
+                 solve_timestep: float,
+                 model: Model
                 ):
         self.patch_id = patch_id
         # self.S, self.E, self.I = K_v/2 + np.random.random()*K_v/2, 0, 0
         # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
-        self.S, self.E, self.I = .25*K_v + np.random.random()*K_v*.75, 0, 0
+        self.S, self.E, self.I = K_v, 0, 0
 
         self.N_v = K_v
         self.K_v = K_v
@@ -265,6 +271,7 @@ class MosquitoModel:
         self.solve_timestep = solve_timestep
 
         self.lambda_v = None
+        self.model = model
 
 
     def tick(self, lambda_v):
@@ -279,6 +286,8 @@ class MosquitoModel:
                                t)
         self.N_v = res[-1].sum()
         self.S, self.E, self.I = res[-1].T
+
+        self.model.statistics["patch_sei"][self.patch_id][int(self.model.time/self.model.timestep)] = res[-1].T
 
 
     def _sei_rates(self, X, t) -> np.ndarray:
@@ -459,7 +468,8 @@ class Patch:
                                             nu_v=nu_v,
                                             time=model.time,
                                             timestep=model.timestep,
-                                            solve_timestep=model.mosquito_timestep
+                                            solve_timestep=model.mosquito_timestep,
+                                            model=model
                                             )
 
         # derived patch-specific values
@@ -558,6 +568,8 @@ class Patch:
 
             seirs     += cur_seirs
             seirs_hat += node.activity.alpha * cur_seirs
+
+            self.model.statistics["node_seir"][node.node_id].append(seirs)
 
         self.model.statistics["num_infected"][self.k].append(seirs[2])
         return seirs, seirs_hat
