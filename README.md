@@ -46,6 +46,9 @@ python test_model.py
     - [X] Build first model version
     - [X] Build script to reproduce figures from original paper
     - [ ] Tidy up codebase
+- [ ] Build visualisation
+    - [X] Build initial visualisation
+    - [ ] Extend visualisation with additional model features
 - [ ] Add `requirements.txt` to repository
 - [ ] Extend model to include preventive behaviours
     - [ ] Build proof of concept to introduce preventive measures

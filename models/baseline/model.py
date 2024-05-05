@@ -109,6 +109,7 @@ class BaselineModel(Model):
         self.total_time = total_time
         self.mosquito_timestep = mosquito_timestep
         self.movement_model = BaselineMovementModel(model=self)
+        self.num_agents = num_agents
 
         self.agents:  List[Agent] = np.full(num_agents, None, dtype=Agent)
         self.nodes:   List[Node]  = np.full(num_locations, None, dtype=Node)
@@ -254,6 +255,7 @@ class MosquitoModel:
                  solve_timestep: float,
                  model: Model
                 ):
+        # TODO: verify & document the initial conditions.
         self.patch_id = patch_id
         # self.S, self.E, self.I = K_v/2 + np.random.random()*K_v/2, 0, 0
         # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
@@ -569,7 +571,7 @@ class Patch:
             seirs     += cur_seirs
             seirs_hat += node.activity.alpha * cur_seirs
 
-            self.model.statistics["node_seir"][node.node_id].append(seirs)
+            self.model.statistics["node_seir"][node.node_id].append(cur_seirs)
 
         self.model.statistics["num_infected"][self.k].append(seirs[2])
         return seirs, seirs_hat
