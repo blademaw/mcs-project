@@ -1,0 +1,585 @@
+\documentclass[8pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{blindtext}
+\usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta,positioning}
+\tikzset{>=latex} % for LaTeX arrow head
+\usetikzlibrary{shapes.geometric}
+\usepackage{derivative}
+\usepackage{svg}
+\usepackage{adjustbox}
+\usepackage{etoolbox}
+
+\usetheme{Darmstadt}
+\usecolortheme{default}
+
+\usepackage[bibstyle=ieee, citestyle=numeric-comp, url=false]{biblatex}
+\addbibresource{references.bib}
+
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+
+\def\signed #1{{\leavevmode\unskip\nobreak\hfil\penalty50\hskip1em
+  \hbox{}\nobreak\hfill #1%
+  \parfillskip=0pt \finalhyphendemerits=0 \endgraf}}
+
+\newsavebox\mybox
+\newenvironment{aquote}[1]
+  {\savebox\mybox{#1}\begin{quote}}
+  {\vspace*{1mm}\signed{\usebox\mybox}\end{quote}}
+
+\usepackage{derivative}
+\usepackage{subcaption}
+\usepackage{color}
+\pgfdeclarelayer{back} % to draw on background
+\pgfsetlayers{back,main} % set order
+\usepackage{ifthen}
+\usetikzlibrary{shapes.geometric}
+\definecolor{s-color}{HTML}{41949A}
+\definecolor{i-color}{HTML}{E56E5A}
+\definecolor{r-color}{HTML}{7384BB}
+\renewcommand\thesubfigure{\roman{subfigure}}
+
+\renewcommand*{\bibfont}{\small}
+
+%------------------------------------------------------------
+%This block of code defines the information to appear in the
+%Title page
+\title{\Large Simulating the Effects of Risk Perception and Human Behaviour on a Vector-borne Disease with Agent-based Modelling}
+
+\subtitle{\normalsize MCS Oral Presentation}
+
+\author{Jack Oliver (1389498)}
+
+\institute
+{\normalsize
+  % \inst{1}%
+  \textbf{Primary Supervisor}\\
+  Associate Professor Nic Geard
+  \and
+  % \inst{2}%
+  \textbf{Co-Supervisor}\\
+  Dr Cameron Zachreson
+}
+
+\date{}
+% \date[VLC 2021] % (optional)
+% {Very Large Conference, April 2021}
+
+%End of title page configuration block
+%------------------------------------------------------------
+
+
+
+%------------------------------------------------------------
+%The next block of commands puts the table of contents at the 
+%beginning of each section and highlights the current section:
+
+% \AtBeginSection[]
+% {
+%   \begin{frame}
+%     \frametitle{Table of Contents}
+%     \tableofcontents[currentsection]
+%   \end{frame}
+% }
+%------------------------------------------------------------
+
+
+\begin{document}
+
+\captionsetup[figure]{font=footnotesize, labelfont=bf, labelsep=period}
+\newcommand{\bcaption}[2]{\caption{\textbf{#1} #2}}
+
+%The next statement creates the title page.
+\frame{\titlepage}
+
+
+%---------------------------------------------------------
+%This block of code is for the table of contents after
+%the title page
+% \begin{frame}
+% \frametitle{Table of Contents}
+% \tableofcontents
+% \end{frame}
+%---------------------------------------------------------
+
+
+\section{Background and motivation}
+
+%---------------------------------------------------------
+%Changing visivility of the text
+\begin{frame}
+\frametitle{Preventive behaviour: a shared example}
+
+\begin{columns}[t!]
+    \begin{column}{4cm}
+        \begin{figure}
+            \centering
+            \includegraphics[width=4cm]{img/face_mask.jpg}
+            \caption*{\footnotesize Source: SCIG\footnotemark[1]}
+        \end{figure}
+    \end{column}
+
+    \begin{column}{6cm}
+    \begin{itemize}
+        \setlength\itemsep{.5cm}
+        \item Think of a time when you wore---or didn't wear---a face mask (when masks weren't mandated). \pause
+        \item What motivated you to protect (or not protect) yourself? \pause
+        \item Was it because\dots
+        \begin{itemize}
+            \item you felt like you might get infected? \pause
+            \item you thought you might infect others? \pause
+            \item you were used to wearing one? \pause
+            \item you just wanted to fit in?
+        \end{itemize}
+            
+    \end{itemize}
+    \end{column}
+\end{columns}
+
+\pause
+% \begin{aquote}{\textcite{tan_severe_2004}}
+%     ``[W]hen people perceive a health problem as serious they will take some kind of action.''
+% \end{aquote}
+\vspace{.5cm}
+\textbf{Preventive behaviours} (the use of preventive measures) differ among individuals because of unique thought processes and varying motivating factors for protection.
+
+\footnotetext[1]{\scriptsize \url{https://southerncrossgroup.com.au/product/disposable-medical-face-mask/}\vspace{.2cm}}
+
+\end{frame}
+
+%---------------------------------------------------------
+
+\subsection{Epidemiological background}
+
+%---------------------------------------------------------
+%Changing visivility of the text
+\begin{frame}
+\frametitle{Vector-borne diseases}
+
+\begin{columns}[t!]
+    \begin{column}{5cm}
+        \begin{figure}
+            \centering
+            \includegraphics[width=5cm]{img/mosquito}
+            \caption*{\footnotesize Source: James Gathany/CDC\footnotemark[1]}
+        \end{figure}
+    \end{column}
+
+    \begin{column}{5cm}
+    \begin{itemize}
+        \item E.g. malaria, dengue, chikungunya, leishmaniasis.
+        \item $\mathbf{\ge}$ 700,000 deaths annually.
+        \item Account for more than 17\% of all infectious diseases \cite{world_health_organisation_who_vector-borne_2020}.
+    \end{itemize}
+    \end{column}
+\end{columns}
+
+\vspace{.25cm}
+\begin{itemize}
+    \item Community-based interventions
+    \begin{itemize}
+        \item Chemical: insecticides, coils
+        \item Non-chemical: long-sleeved clothing, staying indoors
+    \end{itemize}
+\end{itemize}
+
+\vspace{.5cm}
+\textbf{There is a need to better understand the dynamics between vector-borne diseases and preventive behaviours to design effective community-based interventions.}
+% \textbf{How can we design better community-based interventions by understanding the dynamics between vector-borne diseases and preventive behaviours?}
+
+\vspace{.5cm}
+\footnotetext[1]{\scriptsize \url{http://phil.cdc.gov/phil/details.asp?pid=1969}}
+
+\end{frame}
+
+%---------------------------------------------------------
+
+
+%---------------------------------------------------------
+% \begin{frame}
+% \frametitle{Risk perception and behaviour}
+
+% \begin{aquote}{\textcite{tan_severe_2004}}
+%     ``[W]hen people perceive a health problem as serious they will take some kind of action.''
+% \end{aquote}.
+
+% \begin{itemize}
+%     \item In order to adopt preventive measures, individuals must have a \textbf{sufficiently high risk perception} of a disease.
+%     \item Because CBIs are a \textit{bottom-up} approach to tackling VBDs, they \textbf{must influence individuals' risk perception and behavioural attitudes} towards preventive measures.
+%     \item While many \alert{psychological models for why people change their behaviour} exist, the area remains understudied, especially in the context of CBIs and VBDs.
+% \end{itemize}
+
+% \vspace{.5cm}
+% Policymakers need to understand the interactions between disease spread, risk perception, and \textit{preventive behaviours}---behaviours that involve the use of preventive measures.
+
+% \end{frame}
+%---------------------------------------------------------
+
+\subsection{Modelling approaches}
+
+
+%---------------------------------------------------------
+% \begin{frame}
+% \frametitle{Mathematical models for disease spread}
+
+% Traditional models of VBD spread have historically paid little attention to the behaviour of individuals.
+% %You may be familiar with the \textit{SIR} (Susceptible, Infected, and Recovered) model:
+
+% \input{figs/sir_system}
+
+% where $\beta$ is the rate of disease transmission and $\gamma$ is the recovery rate.
+
+% \vspace{.2cm}
+% Mathematical compartmental models assume \textbf{well-mixed homogeneous populations}, meaning individual-level behaviours cannot be represented.
+
+% \vspace{.2cm}
+% Because of this, few research efforts have focused on heterogeneous protective behaviours among individuals, despite these being important for understanding how to design effective community-wide vector control interventions.
+
+% \end{frame}
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Agent-based modelling}
+
+\textit{Agent-based models} (ABMs) define a population of decentralised, autonomous \textit{agents} that interact with one another to reproduce or ``grow'' emergent phenomena.
+
+\vspace{.25cm}
+An agent-based version of the \textit{SIR} (Susceptible, Infected, Recovered) model:\vspace{-.2cm}
+
+% \addtocounter{figure}{-1}
+
+% \begin{columns}[t]
+%     \begin{column}{5cm}
+%         \begin{figure}
+%             \centering
+%             \includegraphics[width=3cm]{img/sir_agents.png}
+%             \bcaption{Agent-based SIR model.}{Source: NetLogo Models Library\footnotemark[1] \cite{wilensky_netlogo_1999}.}
+%         \end{figure}
+%     \end{column}
+
+%     \begin{column}{5cm}
+%         \input{figs/sir_agent_run}
+%     \end{column}
+% \end{columns}
+
+\begin{figure}[htbp]
+   \centering
+   \begin{adjustbox}{center}
+   \includegraphics[width=10cm]{figs/mcs-pres-abm.pdf} 
+   \end{adjustbox}
+   
+ % \caption{Test}
+ % \label{fig:Test}
+\end{figure}
+
+% By defining system mechanisms at the \textbf{agent-level}, these models can \textbf{naturally incorporate heterogeneous factors} of individuals.
+
+% \vspace{.2cm}
+% Despite this, the implications of modelling behaviour within agent-based models is not well understood, and the impacts on disease spread are unclear.
+
+% \footnotetext[1]{\url{https://ccl.northwestern.edu/netlogo/models/Virus}}
+
+\end{frame}
+%---------------------------------------------------------
+
+\begin{frame}
+\frametitle{Psychological behavioural theories}
+
+% Multiple psychological behavioural theories exist for why individuals adopt preventive measures, such as the well-known Health Belief Model:
+
+\textbf{Behavioural theories} from psychology aim to model how people behave. E.g. the Health Belief Model \cite{champion_health_2015}:
+
+\begin{figure}
+    \centering
+    \includegraphics[width=10cm]{img/hbm.png}
+    % \bcaption{Components of the Health Belief Model.}{From \textcite{champion_health_2015}.}
+\end{figure}
+
+Multiple behavioural theories exist, but few research efforts have investigated differences in system dynamics for disease spread and preventive measures when agents act according to various behavioural theories.
+% This is only \textbf{one theory}, and has been criticised in the past (e.g., for ignoring social factors).
+
+\end{frame}
+
+%---------------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Psychological behavioural theories}
+
+% % $\dots$to examine how different behavioural theories impact disease spread and preventive behaviours, I will compare three frameworks in total.
+
+% % \begin{columns}[h]
+% %     \begin{column}{5cm}
+%         \begin{figure}
+%             \centering
+%             \includegraphics[width=9cm]{img/pmt.png}
+%             \bcaption{Protection Motivation Theory diagram.}{From \textcite{ghahremani_effect_2014}.}
+%         \end{figure}
+%     % \end{column}
+
+%     % \begin{column}{5cm}
+%     \vspace{-.25cm}
+%         \begin{figure}
+%             \centering
+%             \includegraphics[width=8cm]{img/comb.png}
+%             \bcaption{The COM-B (Capability, Opportunity, Motivation, and Behaviour) model.}{From \textcite{michie_behaviour_2011}.}
+%         \end{figure}
+% %     \end{column}
+% % \end{columns}
+
+% % This will involve computationally implementing these behavioural theories, which will be a major contribution of the project.
+
+% % \vspace{.5cm}
+% % Once I implement these, I will \alert{analytically compare their impacts on disease and preventive behaviour dynamics}.
+
+% \end{frame}
+
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Research aims and questions}
+
+This project aims to:
+
+\begin{enumerate}
+    \item Use agent-based modelling to quantify the \textbf{effects of different behavioural theories} on the \textbf{adoption of preventive measures}.
+    \item Investigate effective \textbf{strategies for community-based interventions}.
+\end{enumerate}
+
+\vspace{1cm}
+Via the following research questions:
+
+\begin{enumerate}
+
+\item How does the choice of \alert{behavioural theory} influence the \alert{dynamics of agent-based models} for vector-borne disease spread and preventive behaviours?\label{rq1}
+
+\item In such models, how do targeted \alert{community-based interventions} influence \alert{preventive behaviours}?\label{rq2}
+
+\end{enumerate}
+
+
+\end{frame}
+%---------------------------------------------------------
+
+\section{Approach and work completed}
+
+\subsection{Methods}
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Proposed methods}
+
+% \begin{columns}
+    % \begin{column}{5cm}
+        \textbf{Phase 1}: Behavioural theory comparison
+        \begin{enumerate}
+            \item Extend an existing model \cite{manore_network-patch_2015} to incorporate preventive measures.
+
+            \item Computationally encode three behavioural theories.
+            
+            \item Compare the impacts on preventive behaviours and disease spread across the three behavioural theories.
+        \end{enumerate}
+    % \end{column}
+\vspace{1cm}
+    % \begin{column}{5cm}
+        \textbf{Phase 2}: Simulation of community-based interventions
+        \begin{enumerate}
+            \item Use the model from the first phase to simulate community-based interventions.
+            \item Analyse the characteristics of effective interventions.
+        \end{enumerate}
+    % \end{column}
+% \end{columns}
+
+\end{frame}
+
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{The baseline model}
+
+% I will extend an existing ABM that is coupled with a compartmental model for disease vectors.
+Adapted from \textcite{manore_network-patch_2015}:
+
+\input{figs/abm-model}
+%
+\vspace{-.4cm}
+\begin{itemize}
+    \item \textbf{(a)} Mosquito model.
+    \item \textbf{(b)} Agent-based model.
+\end{itemize}
+ % $\lambda_v,\lambda_{h,j}$ couple the two models: infectious agents from the network ABM shown in \textbf{(b)} supply infection force on vectors ($\lambda_v$), and the compartmental model communicates the infection force on agents $\lambda_{h,j}$ in activity $j$.
+
+\end{frame}
+
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+% \begin{frame}
+% \frametitle{Phase 2: Targeted community-based interventions}
+
+% Simulations of community-based interventions will directly and indirectly affect behavioural theory compartments:
+
+% \begin{figure}[h]
+%    \centering
+%    \includegraphics[width=8cm]{figs/hbm-cbi.pdf}
+%  % \caption{Test}
+%  % \label{fig:Test}
+% \end{figure}
+
+% \end{frame}
+
+%---------------------------------------------------------
+
+\subsection{Work completed}
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Reproducing the baseline model}
+
+\begin{columns}[h]
+
+    \begin{column}{10cm}
+        \begin{figure}[h]
+           \centering
+           \includegraphics[width=10cm]{figs/vis.png}
+         % \bcaption{Visualisation for baseline reproduced model.}{}
+         % \label{fig:Test}
+        \end{figure}
+    \end{column}
+    
+    \begin{column}{2cm}
+        \begin{figure}
+            \centering
+            \includegraphics[width=2cm]{figs/vis_labels.png}
+        \end{figure}
+    \end{column}
+
+\end{columns}
+
+
+\end{frame}
+
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Reproducing the baseline model}
+
+
+% \begin{figure}[h]
+%    \centering
+%    \includegraphics[width=7cm]{figs/repr_original.png}
+%  \caption*{Figure from original paper \cite{manore_network-patch_2015}.}
+%  % \label{fig:Test}
+% \end{figure}
+
+% \begin{figure}[h]
+%    \centering
+%    \includegraphics[width=7cm]{figs/repr_repr.png}
+%  \caption*{Reproduced figure from simulations.}
+%  % \label{fig:Test}
+% \end{figure}
+
+\begin{columns}[h]
+
+    \begin{column}{6cm}
+        \begin{figure}[h]
+   \centering
+   \fbox{\includegraphics[width=6cm]{figs/repr_original.png}}
+ \caption*{Figure from original paper \cite{manore_network-patch_2015}.}
+ % \label{fig:Test}
+\end{figure}
+    \end{column}
+
+    
+
+
+    
+    \begin{column}{6cm}
+        \begin{figure}[h]
+   \centering
+   \includegraphics[width=6cm]{figs/repr_repr.png}
+ \caption*{Reproduced figure from simulations.}
+ % \label{fig:Test}
+\end{figure}
+    \end{column}
+
+\end{columns}
+
+
+\end{frame}
+
+%---------------------------------------------------------
+
+\section{Future work}
+
+\subsection{Contributions}
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Research timeline}
+
+To achieve the research objectives within the required timeframe, I propose the following timeline:
+
+\begin{figure}[htbp]
+   \centering
+   \begin{adjustbox}{center}
+   \includegraphics[width=12cm]{figs/mcs-pres-research-timeline.png} 
+   \end{adjustbox}
+   
+ % \caption{Test}
+ % \label{fig:Test}
+\end{figure}
+
+\end{frame}
+
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Expected contributions and implications}
+
+This project will contribute a \alert{methodological contribution} to the modelling community and an \alert{investigation into an understudied area of research} in the field of vector-borne diseases:
+
+\vspace{.5cm}
+\textbf{Phase 1} will contribute:
+
+\begin{enumerate}
+    \item an extension of an existing agent-based model with computational implementations of three psychological behavioural theories;
+    % \item computational implementations of three behavioural theories (including the novel \textit{COM-B}); and
+    \item insights into how these decision-making processes affect the dynamics between disease spread and preventive behaviours.
+\end{enumerate}
+
+\vspace{.5cm}
+\textbf{Phase 2} will contribute:
+
+\begin{enumerate}
+    \item an analysis of intervention characteristics that effectively promote preventive behaviours and curb disease spread.
+\end{enumerate}
+
+\end{frame}
+
+\subsection{Questions}
+
+%---------------------------------------------------------
+\begin{frame}
+\frametitle{Questions}
+\Large Thank you---any questions?
+\end{frame}
+
+%---------------------------------------------------------
+
+%---------------------------------------------------------
+
+\begin{frame}{Bibliography}
+\printbibliography[heading=bibnumbered]
+\end{frame}
+
+\end{document}
