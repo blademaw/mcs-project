@@ -16,46 +16,54 @@ This repository stores my work spanning the ~36 week-period of the MCS minor the
 
 ```
 .
+├── analysis
 ├── models
 │   ├── baseline
-│   └── exploratory
+│   └── scripts
 ├── presentation
 ├── proposal
 │   └── sections
 └── thesis
 ```
 
+- `analysis` contains Jupyter notebooks that perform data analysis according to different stages of the project.
 - `models` stores all code written and developed for the project.
     - `baseline` contains the reproduced model from Manore _et al._ (2015)[^2].
-    - `exploratory` contains notebooks and various scripts for exploratory analysis relating to the project.
+    - `scripts` contains various scripts written to test models.
 - `presentation` contains my work for the oral presentation (worth 5%).
 - `proposal` contains my work for the research proposal component (worth 30%).
 - `thesis` contains my work for the final report (worth 65%).
 
 ## Usage
 
-To build the baseline model and replicate the results, navigate to `models/baseline` and run:
+To build the baseline model and replicate the results, navigate to `models` directory and install the prerequisites:
 
 ```
-python test_model.py
+pip install -r requirements.txt
 ```
+
+then run the desired Jupyter notebook.
 
 ## Roadmap
 
-- [ ] Reproduce baseline model from Manore _et al._ (2015)[^2]
+- [X] Reproduce baseline model from Manore _et al._ (2015)[^2]
     - [X] Build first model version
     - [X] Build script to reproduce figures from original paper
-    - [ ] Tidy up codebase
+    - [X] Tidy up codebase
 - [ ] Build visualisation
-    - [X] Build initial visualisation
+    - [X] Build baseline visualisation
     - [ ] Extend visualisation with additional model features
-- [ ] Add `requirements.txt` to repository
-- [ ] Extend model to include preventive behaviours
-    - [ ] Build proof of concept to introduce preventive measures
+- [X] Add `requirements.txt` to repository
+- [ ] Add test scripts
+    - [ ] Demonstrate model replication
+- [ ] Extend model to include preventive measures
+    - [ ] Introduce preventive measures with baseline rate of adoption
 - [ ] Computationally encode behavioural frameworks
-    - [ ] Build script to test impacts of these
+    - [ ] Proof of concept with the Health Belief Model
+    - [ ] Implement others
+    - [ ] Conduct data analysis
 - [ ] Represent one or more community-based interventions in the ABM
-    - [ ] Complete data analysis work
+    - [ ] Conduct data analysis
 
 
 ## Acknowledgements
