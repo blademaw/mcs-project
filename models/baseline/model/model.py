@@ -1,14 +1,30 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, List
+from typing import Any, Callable, Dict, List, Tuple
 
 import networkx as nx
 import numpy as np
-from scipy import integrate
 from tqdm import tqdm
+
+from .agent import Activity, Agent, Node
+from .patch import Patch, DiseaseState
 
 
 class Model(ABC):
-    """Abstract class representing a custom instance of the hybrid ABM adapted from Manore et al."""
+    """
+    Abstract class representing a custom instance of the hybrid ABM adapted
+    from Manore et al.
+
+    Attributes
+    ---
+    time : float
+        The current time of the model.
+
+    timestep : float
+        The amount between each time step.
+
+    mosquito_timestep : float
+        Amount to solve the mosquito ODE forward in.
+    """
     def __init__(self,
                  time: float,
                  timestep: float,
@@ -18,16 +34,90 @@ class Model(ABC):
         self.mosquito_timestep = mosquito_timestep
     
     @abstractmethod
-    def run(self):
+    def run(self) -> Any:
         pass
     
     @abstractmethod
-    def tick(self):
+    def tick(self) -> Any:
         pass
 
 
 class BaselineModel(Model):
-    """The baseline model from Manore et al."""
+    """
+    The baseline model from Manore et al.
+
+    Attributes
+    ---
+    k : int
+        The number of patches.
+
+    timestep : float
+        The gaps between time in the model.
+
+    movement_dist : Callable[() -> float]
+        Function to generate a movement rate for an agent.
+
+    sigma_h_arr : List[float]
+        List of sigma_h values (the maximum number of mosquito bites an
+        individual can sustain per unit time) for each patch.
+
+    sigma_v_arr : List[float]
+        List of sigma_v values (the number of times one mosquito would want to
+        bite a host per unit time) for each patch.
+
+    K_v_arr : List[float]
+        List of carrying capacity values per patch.
+
+    patch_densities : List[float]
+        List of densities of patches (for locations).
+
+    phi_v_arr : List[float]
+        List of phi_v values (per capita emergence rates of mosquitoes) per
+        patch.
+
+    beta_hv_arr : List[float]
+        List of beta_hv values (probability of transmission when a mosquito
+        bites a host) per patch.
+
+    beta_vh_arr : List[float]
+        List of beta_vh values (probability of transmission when a host is
+        bitten by a mosquito) per patch.
+
+    nu_v_arr : List[float]
+        List of nu_v values (rate of mosquitoes becoming infectious) per patch.
+
+    mu_v_arr : List[float]
+        List of mu_v values (death rate of mosquitoes) per patch.
+
+    r_v_arr : List[float]
+        List of r_v values (intrinsic growth rate) per patch.
+
+    num_locations : int
+        The number of locations/nodes in the model.
+
+    edge_prob : float
+        The probability of connecting two nodes when creating the Erdos-Renyi
+        graph.
+
+    num_agents : int
+        The number of agents in the model.
+
+    initial_infect_proportion : float
+        The number of agents initially infected as a proportion.
+
+    nu_h_dist : Callable[() -> float]
+        Function to generate a nu_h value (rate of a host becoming infectious
+        to the disease).
+
+    mu_h_dist : Callable[() -> float]
+        Function to generate a mu_h value (rate of a host recovering).
+
+    total_time : float
+        The total time to run the model for (days).
+
+    mosquito_timestep : float
+        The time step to solve the mosquito model forward in time.
+    """
     def __init__(self,
                  k: int,
                  timestep: float,
@@ -50,50 +140,6 @@ class BaselineModel(Model):
                  mu_h_dist: Callable[None, float],
                  total_time: float,
                  mosquito_timestep: float) -> None:
-        """
-        Parameters
-        ----------
-        k : int
-            Number of patches.
-        timestep : float
-            Time (in days) that one tick of the model represents, $\Delta t$.
-        movement_dist : Callable[None, float]
-            The distribution to draw agent $\rho$, the propensity to move nodes, from.
-        sigma_h_arr : vector of size $k$
-            $\sigma_h$ (the maximum number of mosquito bites an average host can sustain per time step) values for each patch.
-        sigma_v_arr : vector of size $k$
-            $\sigma_v$ (the number of times one mosquito would want to bite a host per time step if hosts were freely available) values for each patch.
-        K_v_arr : vector of size $k$
-            Carrying capacities for each patch.
-        patch_densities : vector of size $k$
-            Densities for each patch.
-        phi_v_arr : vector of size $k$
-            Emergence rates of mosquitoes for each patch.
-        beta_hv_arr : vector of size $k$
-            Probability of mosquito-to-host transmission for each patch.
-        beta_vh_arr : vector of size $k$
-            Probability of host-to-mosquito transmission for each patch.
-        nu_v_arr : vector of size $k$
-            Mosquito E->I rate for each patch.
-        mu_v_arr : vector of size $k$
-            Mosquito death rate per patch.
-        num_locations : int
-            Number of locations/nodes in the graph.
-        edge_prob : float
-            Probability of connecting two edges in the graph (p).
-        num_agents : int
-            Number of agents/hosts in the simulation.
-        initial_infect_proportion : float
-            Proportion of agents initially infected per patch.
-        nu_h_dist : Callable[None, float]
-            Distribution to draw $\nu_h$ from for each agent (E->I rate).
-        mu_h_dist : Callable[None, float]
-            Distribution to draw $\mu_h$ from for each agent (I->R rate).
-        total_time : float
-            Time (in days) to run simulation for.
-        mosquito_timestep : float
-            Not sure yet - suspect "RK" = Runge-Kutta.
-        """
         # Assign model-specific parameters
         self.time = 0.0
         self.timestep = timestep
@@ -108,7 +154,6 @@ class BaselineModel(Model):
 
         self.K_v_arr = K_v_arr
         
-        # NOTE: tracking
         self.num_infected = 0
         self.statistics = {
             "patch_ticks": 0,
@@ -132,7 +177,9 @@ class BaselineModel(Model):
             "total_infected": 0,
             "total_recovered": 0,
             "total_time_in_state": [0, 0, 0, 0],
-            "patch_sei": {0: np.zeros((int(total_time/timestep), 3)), 1: np.zeros((int(total_time/timestep), 3)), 2: np.zeros((int(total_time/timestep), 3))},
+            "patch_sei": {0: np.zeros((int(total_time/timestep), 3)),
+                          1: np.zeros((int(total_time/timestep), 3)),
+                          2: np.zeros((int(total_time/timestep), 3))},
             "node_seir": {i: [] for i in range(num_locations)},
         }
 
@@ -140,8 +187,10 @@ class BaselineModel(Model):
         self.graph = nx.erdos_renyi_graph(num_locations, edge_prob)
 
         # Initialise nodes — distributed according to patch density
-        node_patch_ids = np.random.choice(k, num_locations, p=patch_densities) # maps node id -> patch id
-        activity = Activity(activity_id=0, alpha=1)                            # only one activity in baseline model
+        node_patch_ids = np.random.choice(k,
+                                          num_locations,
+                                          p=patch_densities)
+        activity = Activity(activity_id=0, alpha=1)
         
         for node_id in range(num_locations):
             node = Node(node_id=node_id, activity=activity)
@@ -173,7 +222,7 @@ class BaselineModel(Model):
         agent_disease_states = [DiseaseState.SUSCEPTIBLE] * num_agents
         for i in range(num_agents):
             agent = Agent(state=agent_disease_states[i],
-                                   node=np.random.choice(num_locations), # chosen with equal probability
+                                   node=np.random.choice(num_locations),
                                    movement_rate=movement_dist(),
                                    movement_model=self.movement_model,
                                    nu_h=nu_h_dist(),
@@ -192,12 +241,20 @@ class BaselineModel(Model):
                         p=[1-initial_infect_proportion,
                            initial_infect_proportion])
 
-        self.num_infected += np.array([agent.state==DiseaseState.INFECTED for agent in self.agents]).sum()
+        self.num_infected += np.array(
+            [agent.state==DiseaseState.INFECTED for agent in self.agents]
+            ).sum()
         self.statistics["total_infected"] += self.num_infected
 
 
     def tick(self) -> List[Any]:
-        """Progress the model forward in time by the time step."""
+        """
+        Progress the model forward in time by the time step.
+
+        Returns
+        ---
+        list
+            List of tick-specific statistics to log."""
         # (1) Update disease status of vectors and then hosts
         for patch in self.patches:
             patch.tick()
@@ -209,109 +266,68 @@ class BaselineModel(Model):
         return []
 
 
-    def run(self, with_progress=False):
-        """Run the model until a certain number of time steps."""
-        res = [] # TODO: refactor this into a pandas df where 1 row = tick, df = run
-        
+    def run(self, with_progress=False) -> Tuple[Dict[str, Any], List[int]]:
+        """
+        Run the model until a certain number of time steps.
+
+        Parameters
+        ---
+        with_progress : bool
+            Whether or not to display tqdm progress during run.
+
+        Returns
+        ---
+        (dict, list)
+            Dictionary of model statistics; list of number of infected agents
+            over time.
+        """
         ticks = int(self.total_time/self.timestep)
         
         if with_progress:
             for _ in tqdm(range(ticks)):
-                res.append(self.tick())
+                self.tick()
                 self.time += self.timestep
         else:
             for _ in range(ticks):
-                res.append(self.tick())
+                self.tick()
                 self.time += self.timestep
-        # while self.time < self.total_time:
         
-        # print(f"Patch ticks: {STATS['patch_ticks']}")
         return self.statistics, [self.num_infected]
-
-
-class MosquitoModel:
-    """Class representing a system of ODEs to be solved for a patch model."""
-    def __init__(self,
-                 patch_id: int,
-                 N0: float,
-                 init_prop: float,
-                 density: float,
-                 K_v: float,
-                 phi_v: float,
-                 r_v: float,
-                 mu_v: float,
-                 nu_v: float,
-                 time: float,
-                 timestep: float,
-                 solve_timestep: float,
-                 model: Model
-                ):
-        # TODO: verify & document the initial conditions.
-        self.patch_id = patch_id
-        # self.S, self.E, self.I = K_v/2 + np.random.random()*K_v/2, 0, 0
-        # self.S, self.E, self.I = np.random.random()*K_v, 0, 0
-        self.S, self.E, self.I = K_v, 0, 0
-
-        self.N_v = K_v
-        self.K_v = K_v
-        self.phi_v = phi_v
-        self.r_v = r_v
-        self.mu_v = mu_v
-        self.nu_v = nu_v
-
-        self.time = time
-        self.timestep = timestep
-        self.solve_timestep = solve_timestep
-
-        self.lambda_v = None
-        self.model = model
-
-
-    def tick(self, lambda_v):
-        """Solve the mosquito model forward in time by the required amount."""
-        self.lambda_v = lambda_v
-
-        t   = np.arange(self.time,
-                        self.time+self.timestep+self.solve_timestep,
-                        self.solve_timestep)
-        res = integrate.odeint(self._sei_rates,
-                               (self.S, self.E, self.I),
-                               t)
-        self.N_v = res[-1].sum()
-        self.S, self.E, self.I = res[-1].T
-
-        self.model.statistics["patch_sei"][self.patch_id][int(self.model.time/self.model.timestep)] = res[-1].T
-
-
-    def _sei_rates(self, X, t) -> np.ndarray:
-        S, E, I = X
-        N_v     = X.sum()
-
-        h_v = (self.phi_v - self.r_v*N_v/self.K_v)*N_v
-        
-        dS = h_v - self.lambda_v * S - self.mu_v * S
-        dE = self.lambda_v * S - self.nu_v * E - self.mu_v * E
-        dI = self.nu_v * E - self.mu_v * I
-
-        return np.array([dS, dE, dI])
 
 
 class MovementModel(ABC):
     """Abstract class representing the logic to make an agent move on a network."""
 
     @abstractmethod
-    def move_agent(self):
+    def move_agent(self) -> Any:
         pass
 
 
 class BaselineMovementModel(MovementModel):
-    """A baseline movement model as described in Manore et al."""
+    """
+    A baseline movement model as described in Manore et al.
+
+    Attributes
+    ---
+    model : Model
+        The overall model to use.
+    """
     def __init__(self, model: Model) -> None:
         self.model = model
         
         
-    def move_agent(self, agent, rho: float) -> None:
-        """Move an agent with probability 1 - e^{- delta t * rho}"""
+    def move_agent(self, agent: Agent, rho: float) -> None:
+        """
+        Move an agent with probability 1 - e^{- delta t * rho}.
+
+        Parameters
+        ---
+        agent : Agent
+            The agent to move.
+
+        rho : float
+            The movement rate for the agent.
+        """
         if np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
             self.model.statistics["num_movements"] += 1
 

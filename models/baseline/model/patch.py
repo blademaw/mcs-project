@@ -3,10 +3,56 @@ from typing import Set
 import numpy as np
 
 from .agent import DiseaseState, Node
-from .model import Model, MosquitoModel
+from .mosquito_model import MosquitoModel
 
 class Patch:
-    """Represents an area covering nodes with a corresponding mosquito 'cloud'."""
+    """
+    Represents an area covering nodes with a corresponding mosquito 'cloud'.
+
+    Attributes
+    ---
+    k : int
+        The ID of the patch.
+
+    initial_infect_proportion : float
+        The number of agents initially infected in the patch.
+
+    density : float
+        The density of locations in the patch.
+
+    K_v : float
+        The carrying capacity of the patch.
+
+    sigma_v : float
+        The number of times one mosquito would want to bite a host per unit time.
+
+    sigma_h : float
+        The maximum number of mosquito bites an individual can sustain per unit time.
+
+    phi_v : float
+        Per capita emergence of mosquitoes.
+
+    beta_hv : float
+        Probability of transmission when a mosquito bites a host.
+
+    beta_vh : float
+        Probability of transmission when a host is bitten by a mosquito.
+
+    nu_v : float
+        Rate of mosquitoes becoming infectious.
+
+    mu_v : float
+        Death rate of mosquitoes.
+
+    r_v : float
+        Intrinsic growth rate.
+
+    model : Model
+        The overall model.
+
+    nodes : Set[Node]
+        The set of nodes for the patch.
+    """
     def __init__(self,
                  k: int,
                  initial_infect_proportion: float,
@@ -20,20 +66,16 @@ class Patch:
                  nu_v: float,
                  mu_v: float,
                  r_v: float,
-                 model: Model,
-                 nodes: Set[Node]=None) -> None:
+                 model: 'Model',
+                 nodes: Set[Node] | Node = None) -> None:
         self.k = k
         self.K_v = K_v
         self.sigma_v = sigma_v
         self.sigma_h = sigma_h
         self.model = model
-        
+
         self.nodes: Set[Node] = set() if nodes is None else nodes
-        
         self.mosquito_model = MosquitoModel(patch_id=k,
-                                            N0=K_v,
-                                            init_prop=initial_infect_proportion,
-                                            density=density,
                                             K_v=K_v,
                                             phi_v=phi_v,
                                             r_v=r_v,
@@ -66,9 +108,10 @@ class Patch:
         self.b_h = None
 
 
-    def tick(self) -> np.ndarray:
+    def tick(self):
         """Advance the patch model by one time step."""
         self.model.statistics["patch_ticks"] += 1
+
         # Update patch values from ABM (agent statistics)
         self._update_patch_values()
 
@@ -96,11 +139,9 @@ class Patch:
             for agent in node.agents:
                 agent.update_state(lambda_hj)
 
-        # print(lambda_v, lambda_hj)
-
 
     def _update_patch_values(self) -> None:
-        """Update the internal values of a patch."""
+        """Updates the internal values of a patch."""
         seirs, seirs_hat = self._count_agents_in_patch()
         self.N_h, self.N_hat_h = seirs.sum(), seirs_hat.sum()
         
@@ -115,7 +156,7 @@ class Patch:
 
 
     def _count_agents_in_patch(self):
-        """Count agents in this patch."""
+        """Counts agents in this patch."""
         seirs     = np.array([0, 0, 0, 0])
         seirs_hat = np.array([0, 0, 0, 0])
 
@@ -143,5 +184,11 @@ class Patch:
 
 
     def get_force_on_vectors(self) -> float:
-        """Calculate the force of infection on vectors for this patch (lambda_v)."""
+        """
+        Calculate the force of infection on vectors for this patch (lambda_v).
+
+        Returns
+        ---
+        float
+            The force of infection on vectors (lambda_v)."""
         return self.b_v * self.beta_vh * (self.I_hat_h/self.N_hat_h)
