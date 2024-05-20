@@ -5,7 +5,6 @@ from typing import Any, Callable, List, Set
 import networkx as nx
 import numpy as np
 from scipy import integrate
-from scipy.stats import truncnorm
 from tqdm import tqdm
 
 
@@ -493,12 +492,6 @@ class Patch:
         self.b   = None
         self.b_v = None
         self.b_h = None
-
-
-    # TODO: delete this.
-    # def add_nodes(self, nodes_to_add: Iterable[int]) -> None:
-    #     """Add nodes to the patch."""
-    #     self.nodes = set.union(self.nodes, set(nodes_to_add))
 
 
     def tick(self) -> np.ndarray:
