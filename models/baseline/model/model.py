@@ -201,8 +201,6 @@ class BaselineModel(Model):
         for patch_id in range(k):
             patch = Patch(
                 k=patch_id,
-                initial_infect_proportion=initial_infect_proportion,
-                density=patch_densities[patch_id],
                 K_v=K_v_arr[patch_id],
                 sigma_v=sigma_v_arr[patch_id],
                 sigma_h=sigma_h_arr[patch_id],

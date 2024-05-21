@@ -55,8 +55,6 @@ class Patch:
     """
     def __init__(self,
                  k: int,
-                 initial_infect_proportion: float,
-                 density: float,
                  K_v: float,
                  sigma_v: float,
                  sigma_h: float,
@@ -67,7 +65,7 @@ class Patch:
                  mu_v: float,
                  r_v: float,
                  model: 'Model',
-                 nodes: Set[Node] | Node = None) -> None:
+                 nodes: Set[Node] | None = None) -> None:
         self.k = k
         self.K_v = K_v
         self.sigma_v = sigma_v
