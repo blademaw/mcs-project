@@ -14,12 +14,6 @@ class Patch:
     k : int
         The ID of the patch.
 
-    initial_infect_proportion : float
-        The number of agents initially infected in the patch.
-
-    density : float
-        The density of locations in the patch.
-
     K_v : float
         The carrying capacity of the patch.
 
