@@ -214,7 +214,7 @@ class BaselineModel(Model):
                 beta_vh=beta_vh_arr[patch_id],
                 nu_v=nu_v_arr[patch_id],
                 mu_v=mu_v_arr[patch_id],
-                r_v=r_v_arr[patch_id],
+                r_v=phi_v_arr[patch_id]-mu_v_arr[patch_id],
                 model=self,
                 nodes=self.nodes[np.where(node_patch_ids == patch_id)]
             )
