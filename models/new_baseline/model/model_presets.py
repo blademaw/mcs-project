@@ -23,7 +23,8 @@ BASELINE_MODEL = {
     "mu_h_dist" : lambda : np.random.lognormal(-1.79226, np.sqrt(np.log(1.001))),
     "nu_h_dist" : lambda : np.random.lognormal(-1.60994, np.sqrt(np.log(1.001))),
     "total_time" : 200,
-    "mosquito_timestep" : .005
+    "mosquito_timestep" : .005,
+	"adopt_prob": 0,
 }
 
 
@@ -48,7 +49,8 @@ HIGH_MOVEMENT = {
     "mu_h_dist" : lambda : np.random.lognormal(-1.79226, np.log(1.001)),
     "nu_h_dist" : lambda : np.random.lognormal(-1.60994, np.log(1.001)),
     "total_time" : 200,
-    "mosquito_timestep" : .005
+    "mosquito_timestep" : .005,
+	"adopt_prob": 0,
 }
 
 MEDIUM_MOVEMENT = {
@@ -72,7 +74,8 @@ MEDIUM_MOVEMENT = {
     "mu_h_dist" : lambda : np.random.lognormal(-1.80944, .188062),
     "nu_h_dist" : lambda : np.random.lognormal(-1.62178, .157139),
     "total_time" : 200,
-    "mosquito_timestep" : .005
+    "mosquito_timestep" : .005,
+	"adopt_prob": 0,
 }
 
 LOW_MOVEMENT = {
@@ -96,5 +99,6 @@ LOW_MOVEMENT = {
     "mu_h_dist" : lambda : np.random.lognormal(-1.80944, .188062),
     "nu_h_dist" : lambda : np.random.lognormal(-1.62178, .157139),
     "total_time" : 200,
-    "mosquito_timestep" : .005
+    "mosquito_timestep" : .005,
+	"adopt_prob": 0,
 }
