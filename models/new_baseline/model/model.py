@@ -71,8 +71,8 @@ class BaselineModel(Model):
     patch_densities : List[float]
         List of densities of patches (for locations).
 
-    phi_v_arr : List[float]
-        List of phi_v values (per capita emergence rates of mosquitoes) per
+    psi_v_arr : List[float]
+        List of psi_v values (per capita emergence rates of mosquitoes) per
         patch.
 
     beta_hv_arr : List[float]
@@ -126,7 +126,7 @@ class BaselineModel(Model):
                  sigma_v_arr: np.ndarray,
                  K_v_arr: np.ndarray,
                  patch_densities: np.ndarray,
-                 phi_v_arr: np.ndarray,
+                 psi_v_arr: np.ndarray,
                  beta_hv_arr: np.ndarray,
                  beta_vh_arr: np.ndarray,
                  nu_v_arr: np.ndarray,
@@ -215,12 +215,12 @@ class BaselineModel(Model):
                 K_v=K_v_arr[patch_id],
                 sigma_v=sigma_v_arr[patch_id],
                 sigma_h=sigma_h_arr[patch_id],
-                phi_v=phi_v_arr[patch_id],
+                psi_v=psi_v_arr[patch_id],
                 beta_hv=beta_hv_arr[patch_id],
                 beta_vh=beta_vh_arr[patch_id],
                 nu_v=nu_v_arr[patch_id],
                 mu_v=mu_v_arr[patch_id],
-                r_v=phi_v_arr[patch_id]-mu_v_arr[patch_id],
+                r_v=psi_v_arr[patch_id]-mu_v_arr[patch_id],
                 model=self,
                 nodes=self.nodes[np.where(node_patch_ids == patch_id)]
             )

@@ -23,7 +23,7 @@ class Patch:
     sigma_h : float
         The maximum number of mosquito bites an individual can sustain per unit time.
 
-    phi_v : float
+    psi_v : float
         Per capita emergence of mosquitoes.
 
     beta_hv : float
@@ -52,7 +52,7 @@ class Patch:
                  K_v: float,
                  sigma_v: float,
                  sigma_h: float,
-                 phi_v: float,
+                 psi_v: float,
                  beta_hv: float,
                  beta_vh: float,
                  nu_v: float,
@@ -72,7 +72,7 @@ class Patch:
         self.nodes: Set[Node] = set() if nodes is None else nodes
         self.mosquito_model = MosquitoModel(patch_id=k,
                                             K_v=K_v,
-                                            phi_v=phi_v,
+                                            psi_v=psi_v,
                                             r_v=r_v,
                                             mu_v=mu_v,
                                             nu_v=nu_v,

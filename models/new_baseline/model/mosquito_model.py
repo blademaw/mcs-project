@@ -14,7 +14,7 @@ class MosquitoModel:
     K_v : float
         Carrying capacity of the patch.
 
-    phi_v : float
+    psi_v : float
         Per capita emergence rates of mosquitoes for the patch.
 
     r_v : float
@@ -41,7 +41,7 @@ class MosquitoModel:
     def __init__(self,
                  patch_id: int,
                  K_v: float,
-                 phi_v: float,
+                 psi_v: float,
                  r_v: float,
                  mu_v: float,
                  nu_v: float,
@@ -55,7 +55,7 @@ class MosquitoModel:
 
         self.N_v = K_v
         self.K_v = K_v
-        self.phi_v = phi_v
+        self.psi_v = psi_v
         self.r_v = r_v
         self.mu_v = mu_v
         self.nu_v = nu_v
@@ -99,7 +99,7 @@ class MosquitoModel:
         S, E, I = X
         N_v     = X.sum()
 
-        h_v = (self.phi_v - self.r_v*N_v/self.K_v)*N_v
+        h_v = (self.psi_v - self.r_v*N_v/self.K_v)*N_v
         
         dS = h_v - self.lambda_v * S - self.mu_v * S
         dE = self.lambda_v * S - self.nu_v * E - self.mu_v * E
