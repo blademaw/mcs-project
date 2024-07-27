@@ -32,7 +32,7 @@ class Model(ABC):
         self.time = time
         self.timestep = timestep
         self.mosquito_timestep = mosquito_timestep
-    
+
     @abstractmethod
     def run(self) -> Any:
         pass
@@ -140,7 +140,8 @@ class BaselineModel(Model):
                  mu_h_dist: Callable[..., float],
                  total_time: float,
                  mosquito_timestep: float,
-                 adopt_prob: float | None = None) -> None:
+                 adopt_prob: float | None = None,
+                 prob_adopt_itn: float = .2) -> None:
         # Assign model-specific parameters
         self.time = 0.0
         self.tick_counter = 0
@@ -151,8 +152,12 @@ class BaselineModel(Model):
         self.num_agents = num_agents
 
         # Preventive measure specific attributes
-        self.adopt_prob = adopt_prob
         self.preventive_measures_enabled = False
+        self.adopt_prob = adopt_prob
+        
+        self.forest_worker_prob = .76
+        self.asleep = False
+        self.prob_adopt_itn = prob_adopt_itn
 
         self.agents:  List[Agent] = np.full(num_agents, None, dtype=Agent)
         self.nodes:   List[Node]  = np.full(num_locations, None, dtype=Node)
@@ -162,6 +167,7 @@ class BaselineModel(Model):
         
         self.num_infected = 0
         self.statistics = {
+            "go_home": [],
             "time": [],
             "patch_ticks": 0,
             "lambda_hj": [],
@@ -223,15 +229,28 @@ class BaselineModel(Model):
 
         # Initialise agents
         agent_disease_states = [DiseaseState.SUSCEPTIBLE] * num_agents
+
         for i in range(num_agents):
+            forest_worker = False
+            work_node = None
+
+            if np.random.random() < self.forest_worker_prob:
+                # Assign a work node in forest, assume patch 3 = forest
+                work_node = np.random.choice(self.patches[2].nodes).node_id
+                forest_worker = True
+
+            home_node = np.random.choice(num_locations)
             agent = Agent(state=agent_disease_states[i],
-                                   node=np.random.choice(num_locations),
+                                   node=home_node,
                                    movement_rate=movement_dist(),
                                    movement_model=self.movement_model,
                                    nu_h=nu_h_dist(),
                                    mu_h=mu_h_dist(),
-                                   model=self
-                                  )
+                                   worker=forest_worker,
+                                   home_node=home_node,
+                                   model=self,
+                                   work_node=work_node
+                          )
             self.agents[i] = agent
             self.nodes[agent.node].add_agent(agent)
 
@@ -261,10 +280,31 @@ class BaselineModel(Model):
         # (1) Update disease status of vectors and then hosts
         for patch in self.patches:
             patch.tick()
-        
+
         # (2) Move agents randomly
-        for agent in self.agents:
-            agent.move()
+        # Check if should be sleeping
+        if (self.time*24 % 24 >= 18) or (self.time*24 % 24 <= 6):
+            if self.asleep:
+                pass # Agents do not move when asleep
+            else:
+                # Agents go to their home node and are asleep
+                self.statistics["go_home"] += [self.time]
+                for agent in self.agents:
+                    self.graph.nodes[agent.node]["node"].remove_agent(agent)
+                    self.graph.nodes[agent.home_node]["node"].add_agent(agent)
+                    
+                    agent.node = agent.home_node
+
+                    agent.trigger_itn_protection(self.prob_adopt_itn)
+                self.asleep = True
+        else:
+            # Agents are awake
+            self.asleep = False
+
+            for agent in self.agents:
+                # Remove ITN protection
+                agent.itn_active = False
+                agent.move()
 
         self.tick_counter += 1
         self.statistics["time"] += [self.time]
@@ -320,12 +360,64 @@ class BaselineMovementModel(MovementModel):
     ---
     model : Model
         The overall model to use.
+
+    Methods
+    ---
+    move_agent
+        Move an agent in the model.
+
+    move_work
+        Move a worker agent according to the worker agent movement model.
+
+    move_random
+        Move an agent according to the random movement model (from Manore et
+        al. (2015)).
     """
     def __init__(self, model: Model) -> None:
         self.model = model
-        
-        
+
+
     def move_agent(self, agent: Agent, rho: float) -> None:
+        """
+        Move an agent in the simulation. Decides how agents move in the
+        model. Agents sleep between the hours of 6pm--6am, and move outside
+        these hours.
+
+        Parameters
+        ---
+        rho : float
+            The movement rate of the agent.
+        """
+        if agent.worker:
+            self.move_work(agent)
+        else:
+            self.move_random(agent, rho)
+
+
+    def move_work(self, agent: Agent) -> None:
+        """
+        Move a worker agent to their place of work, or home.
+
+        Parameters
+        ---
+        agent : Agent
+            The worker agent to be moved.
+        """
+        assert agent.work_node is not None, f"`move_work()` triggered on non-working agent with node {agent.work_node} and worker={agent.worker}"
+
+        if agent.node == agent.work_node:
+            pass # Worker agents do not move in their work node during work hours
+        else:
+            # TODO: move this process to a new function.
+
+            # Worker agents go to work
+            self.model.graph.nodes[agent.node]["node"].remove_agent(agent)
+            self.model.graph.nodes[agent.work_node]["node"].add_agent(agent)
+            
+            agent.node = agent.work_node
+            
+
+    def move_random(self, agent: Agent, rho: float) -> None:
         """
         Move an agent with probability 1 - e^{- delta t * rho}.
 

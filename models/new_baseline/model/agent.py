@@ -33,7 +33,14 @@ class Agent:
     mu_h : float
         The rate of recovery.
 
-    mode : Model
+    worker : bool
+        Whether the agent is a forest worker (commutes to the forest each day
+        to work).
+
+    home_node : int
+        The node the agent resides in.
+
+    model : Model
         The model the agent belongs to.
     """
     def __init__(self,
@@ -43,16 +50,24 @@ class Agent:
                  movement_model: 'BaselineMovementModel',
                  nu_h: float,
                  mu_h: float,
-                 model: 'Model') -> None:
+                 worker: bool,
+                 home_node: int,
+                 model: 'Model',
+                 work_node: int | None = None) -> None:
         self.state = state
         self.node  = node
         self.model = model
+        self.home_node = home_node
+        self.work_node = work_node
 
         self.nu_h = nu_h
         self.mu_h = mu_h
         
         self.movement_rate  = movement_rate
         self.movement_model = movement_model
+
+        self.worker = worker
+        self.itn_active = False
 
         self.num_ticks_in_state = 0
 
@@ -61,6 +76,11 @@ class Agent:
         """
         Moves the agent randomly."""
         self.movement_model.move_agent(self, self.movement_rate)
+
+
+    def trigger_itn_protection(self, prob_adopt_itn: float) -> None:
+        if np.random.random() < prob_adopt_itn:
+            self.itn_active = True
 
 
     def update_state(self, lambda_hj: float) -> None:
@@ -80,11 +100,7 @@ class Agent:
             case DiseaseState.SUSCEPTIBLE:
                 self.model.statistics["agent_disease_counts"][0][self.model.tick_counter] += 1
 
-                efficacy = 0
-                if self.model.preventive_measures_enabled:
-                    if np.random.random() < self.model.adopt_prob:
-                        efficacy = .5
-
+                efficacy = .99 if self.itn_active else 0
                 if r < (1 - np.exp(- self.model.timestep * lambda_hj))*(1-efficacy):
                     self.state = DiseaseState.EXPOSED
                     self.num_ticks_in_state = 0

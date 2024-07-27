@@ -62,7 +62,10 @@ class Patch:
                  nodes: Set[Node] | None = None) -> None:
         self.k = k
         self.K_v = K_v
+
+        self.orig_sigma_v = sigma_v
         self.sigma_v = sigma_v
+
         self.sigma_h = sigma_h
         self.model = model
 
@@ -103,6 +106,12 @@ class Patch:
     def tick(self):
         """Advance the patch model by one time step."""
         self.model.statistics["patch_ticks"] += 1
+
+        # If dawn/night/dusk, strengthen sigma_v (mosquito aggressiveness by 5x)
+        sigma_v_modifier = 1
+        if (self.model.time*24 % 24 >= 18) or (self.model.time*24 % 24 <= 8):
+            sigma_v_modifier = 4
+        self.sigma_v = self.orig_sigma_v*sigma_v_modifier
 
         # Update patch values from ABM (agent statistics)
         self._update_patch_values()
