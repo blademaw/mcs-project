@@ -141,7 +141,8 @@ class BaselineModel(Model):
                  total_time: float,
                  mosquito_timestep: float,
                  adopt_prob: float | None = None,
-                 prob_adopt_itn: float = .2) -> None:
+                 prob_adopt_itn: float = .2,
+                 forest_worker_prob: float = .68) -> None:
         # Assign model-specific parameters
         self.time = 0.0
         self.tick_counter = 0
@@ -155,7 +156,7 @@ class BaselineModel(Model):
         self.preventive_measures_enabled = False
         self.adopt_prob = adopt_prob
         
-        self.forest_worker_prob = .76
+        self.forest_worker_prob = forest_worker_prob
         self.asleep = False
         self.prob_adopt_itn = prob_adopt_itn
 
