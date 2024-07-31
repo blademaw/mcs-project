@@ -92,8 +92,8 @@ class BaselineModel(Model):
     r_v_arr : List[float]
         List of r_v values (intrinsic growth rate) per patch.
 
-    num_locations : int
-        The number of locations/nodes in the model.
+    num_households: int
+        The number of households in the model.
 
     edge_prob : float
         The probability of connecting two nodes when creating the Erdos-Renyi
@@ -132,7 +132,7 @@ class BaselineModel(Model):
                  nu_v_arr: np.ndarray,
                  mu_v_arr: np.ndarray,
                  r_v_arr: np.ndarray,
-                 num_locations: int,
+                 num_households: int,
                  edge_prob: float,
                  num_agents: int,
                  initial_infect_proportion: float,
@@ -151,6 +151,8 @@ class BaselineModel(Model):
         self.mosquito_timestep = mosquito_timestep
         self.movement_model = BaselineMovementModel(model=self)
         self.num_agents = num_agents
+        self.num_households = num_households
+        self.num_locations = num_households + 1 + 3 # 1 forest site + 3 fields
 
         # Preventive measure specific attributes
         self.preventive_measures_enabled = False
@@ -161,7 +163,9 @@ class BaselineModel(Model):
         self.prob_adopt_itn = prob_adopt_itn
 
         self.agents:  List[Agent] = np.full(num_agents, None, dtype=Agent)
-        self.nodes:   List[Node]  = np.full(num_locations, None, dtype=Node)
+        self.nodes:   List[Node]  = np.full(self.num_locations,
+                                            None,
+                                            dtype=Node)
         self.patches: List[Patch] = np.full(k, None, dtype=Patch)
 
         self.K_v_arr = K_v_arr
@@ -192,22 +196,21 @@ class BaselineModel(Model):
             "patch_sei": {0: np.zeros((int(total_time/timestep), 3)),
                           1: np.zeros((int(total_time/timestep), 3)),
                           2: np.zeros((int(total_time/timestep), 3))},
-            "node_seir": {i: [] for i in range(num_locations)},
+            "node_seir": {i: [] for i in range(self.num_locations)},
         }
 
         # Initialise network — Erdos-Renyi with n, p
-        self.graph = nx.erdos_renyi_graph(num_locations, edge_prob)
+        self.graph = nx.erdos_renyi_graph(self.num_locations, edge_prob)
 
-        # Initialise nodes — distributed according to patch density
+        # Initialise households — distributed according to patch density
         node_patch_ids = np.random.choice(k,
-                                          num_locations,
+                                          num_households,
                                           p=patch_densities)
-        activity = Activity(activity_id=0, alpha=1)
+        cur_node_id = num_households
+        household_act = Activity(activity_id=0, alpha=.54)
         
-        for node_id in range(num_locations):
-            node = Node(node_id=node_id, activity=activity)
-            self.nodes[node_id] = node
-            self.graph.nodes[node_id]["node"] = node
+        for node_id in range(num_households):
+            self._add_node(node_id, node_patch_ids[node_id], household_act)
 
         # Initialise patches
         for patch_id in range(k):
@@ -223,9 +226,24 @@ class BaselineModel(Model):
                 mu_v=mu_v_arr[patch_id],
                 r_v=psi_v_arr[patch_id]-mu_v_arr[patch_id],
                 model=self,
-                nodes=self.nodes[np.where(node_patch_ids == patch_id)]
+                nodes=set(self.nodes[np.where(node_patch_ids == patch_id)]),
             )
             self.patches[patch_id] = patch
+
+
+        ## Create and add special location types
+        # 1. Work sites (forest)
+        self._add_node(cur_node_id, 2, Activity(activity_id=1, alpha=1.))
+        self.forest_node = self.nodes[cur_node_id]
+        self.patches[2].nodes.add(self.nodes[cur_node_id])
+        cur_node_id += 1
+
+        # 2. Plantation/field node
+        for patch_id in range(k):
+            self._add_node(cur_node_id, patch_id, Activity(activity_id=1, alpha=1.))
+            self.patches[patch_id].plantation_node = self.nodes[cur_node_id]
+            self.patches[patch_id].nodes.add(self.nodes[cur_node_id])
+            cur_node_id += 1
 
 
         # Initialise agents
@@ -237,10 +255,12 @@ class BaselineModel(Model):
 
             if np.random.random() < self.forest_worker_prob:
                 # Assign a work node in forest, assume patch 3 = forest
-                work_node = np.random.choice(self.patches[2].nodes).node_id
+                # TODO: bake this into the movement model, not here.
+                # work_node = np.random.choice(self.patches[2].nodes).node_id
+                work_node = self.forest_node.node_id
                 forest_worker = True
 
-            home_node = np.random.choice(num_locations)
+            home_node = np.random.choice(num_households)
             agent = Agent(state=agent_disease_states[i],
                                    node=home_node,
                                    movement_rate=movement_dist(),
@@ -268,6 +288,14 @@ class BaselineModel(Model):
             [agent.state==DiseaseState.INFECTED for agent in self.agents]
             ).sum()
         self.statistics["total_infected"] += self.num_infected
+
+
+    def _add_node(self, node_id: int,
+                  patch_id: int,
+                  activity: Activity) -> None:
+        node = Node(node_id=node_id, patch_id=patch_id, activity=activity)
+        self.nodes[node_id] = node
+        self.graph.nodes[node_id]["node"] = node
 
 
     def tick(self) -> List[Any]:
@@ -430,19 +458,26 @@ class BaselineMovementModel(MovementModel):
         rho : float
             The movement rate for the agent.
         """
+        assert not agent.worker, "Agent is a worker."
+
         if np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
+            # If an agent decides to move
             self.model.statistics["num_movements"] += 1
 
-            # An agent moves to a connected node uniformly
-            choices = self.model.graph.adj[agent.node]
+            if np.random.random() < .599:
+                # Move to an open space/field
+                new_node = self.model.patches[self.model.graph.nodes[agent.node]["node"].patch_id].plantation_node.node_id
+            else:
+                # Move to a household uniformly
+                choices = [node_id for node_id in self.model.graph.adj[agent.node] if node_id < self.model.num_households]
 
-            # If an agent can actually move
-            if len(choices) > 0:
-                new_node = np.random.choice(choices)
-                
+                # Only if an agent can actually move
+                if len(choices) > 0:
+                    new_node = np.random.choice(choices)
+
+            if new_node is not None:
                 self.model.graph.nodes[agent.node]["node"].remove_agent(agent)
                 self.model.graph.nodes[new_node]["node"].add_agent(agent)
-                
                 agent.node = new_node
 
 

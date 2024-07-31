@@ -167,9 +167,11 @@ class Node:
     """
     def __init__(self,
                  node_id: int,
+                 patch_id: int,
                  activity: Activity,
                  agents: Set[Agent] | None = None) -> None:
         self.node_id = node_id
+        self.patch_id = patch_id
         self.activity= activity
         
         self.agents: Set[Agent]  = set() if agents is None else agents
