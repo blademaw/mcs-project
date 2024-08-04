@@ -8,6 +8,10 @@ from tqdm import tqdm
 from .agent import Activity, Agent, Node
 from .patch import Patch, DiseaseState
 
+# Define activities used for location types
+HOUSEHOLD_ACTIVITY   = Activity(activity_id=0, alpha=.54)
+FOREST_SITE_ACTIVITY = Activity(activity_id=1, alpha=1.)
+FIELD_SITE_ACTIVITY  = Activity(activity_id=2, alpha=1.)
 
 class Model(ABC):
     """
@@ -89,9 +93,6 @@ class BaselineModel(Model):
     mu_v_arr : List[float]
         List of mu_v values (death rate of mosquitoes) per patch.
 
-    r_v_arr : List[float]
-        List of r_v values (intrinsic growth rate) per patch.
-
     num_households: int
         The number of households in the model.
 
@@ -131,7 +132,6 @@ class BaselineModel(Model):
                  beta_vh_arr: np.ndarray,
                  nu_v_arr: np.ndarray,
                  mu_v_arr: np.ndarray,
-                 r_v_arr: np.ndarray,
                  num_households: int,
                  edge_prob: float,
                  num_agents: int,
@@ -140,9 +140,9 @@ class BaselineModel(Model):
                  mu_h_dist: Callable[..., float],
                  total_time: float,
                  mosquito_timestep: float,
-                 adopt_prob: float | None = None,
-                 prob_adopt_itn: float = .2,
-                 forest_worker_prob: float = .68) -> None:
+                 prob_adopt_itn: float = .0,
+                 forest_worker_prob: float = .05,
+                 field_worker_prob: float = .71) -> None:
         # Assign model-specific parameters
         self.time = 0.0
         self.tick_counter = 0
@@ -152,23 +152,22 @@ class BaselineModel(Model):
         self.movement_model = BaselineMovementModel(model=self)
         self.num_agents = num_agents
         self.num_households = num_households
-        self.num_locations = num_households + 1 + 3 # 1 forest site + 3 fields
+        self.num_locations = num_households + 1 + 2 # 1 forest site + 2 fields
+        self.K_v_arr = K_v_arr
 
-        # Preventive measure specific attributes
-        self.preventive_measures_enabled = False
-        self.adopt_prob = adopt_prob
-        
+        # Parameters for mobility and demographics
+        assert (forest_worker_prob < 1 and field_worker_prob < 1) and (forest_worker_prob + field_worker_prob <= 1), "Forest and field worker probabilities must sum to at most 1."
         self.forest_worker_prob = forest_worker_prob
-        self.asleep = False
+        self.field_worker_prob = field_worker_prob
         self.prob_adopt_itn = prob_adopt_itn
+        self.asleep = False
 
+        # Entities
         self.agents:  List[Agent] = np.full(num_agents, None, dtype=Agent)
         self.nodes:   List[Node]  = np.full(self.num_locations,
                                             None,
                                             dtype=Node)
         self.patches: List[Patch] = np.full(k, None, dtype=Patch)
-
-        self.K_v_arr = K_v_arr
         
         self.num_infected = 0
         self.statistics = {
@@ -199,6 +198,7 @@ class BaselineModel(Model):
             "node_seir": {i: [] for i in range(self.num_locations)},
         }
 
+
         # Initialise network — Erdos-Renyi with n, p
         self.graph = nx.erdos_renyi_graph(self.num_locations, edge_prob)
 
@@ -207,10 +207,10 @@ class BaselineModel(Model):
                                           num_households,
                                           p=patch_densities)
         cur_node_id = num_households
-        household_act = Activity(activity_id=0, alpha=.54)
-        
+
+        # Add households to model
         for node_id in range(num_households):
-            self._add_node(node_id, node_patch_ids[node_id], household_act)
+            self._add_node(node_id, node_patch_ids[node_id], HOUSEHOLD_ACTIVITY)
 
         # Initialise patches
         for patch_id in range(k):
@@ -226,24 +226,29 @@ class BaselineModel(Model):
                 mu_v=mu_v_arr[patch_id],
                 r_v=psi_v_arr[patch_id]-mu_v_arr[patch_id],
                 model=self,
-                nodes=set(self.nodes[np.where(node_patch_ids == patch_id)]),
+                nodes=set(self.nodes[np.where(node_patch_ids == patch_id)])
             )
             self.patches[patch_id] = patch
 
 
-        ## Create and add special location types
-        # 1. Work sites (forest)
-        self._add_node(cur_node_id, 2, Activity(activity_id=1, alpha=1.))
+        ## Create and add special location nodes
+        # 1. Forest work site
+        self._add_node(cur_node_id,
+                       2, # exists only in patch 2 (inner forest)
+                       FOREST_SITE_ACTIVITY)
         self.forest_node = self.nodes[cur_node_id]
         self.patches[2].nodes.add(self.nodes[cur_node_id])
         cur_node_id += 1
 
-        # 2. Plantation/field node
-        for patch_id in range(k):
-            self._add_node(cur_node_id, patch_id, Activity(activity_id=1, alpha=1.))
-            self.patches[patch_id].plantation_node = self.nodes[cur_node_id]
+        # 2. Plantation/field nodes (patches 0, 1; outer/fringe forest)
+        for patch_id in range(2):
+            self._add_node(cur_node_id,
+                           patch_id,
+                           FIELD_SITE_ACTIVITY)
+            self.patches[patch_id].field_node = self.nodes[cur_node_id]
             self.patches[patch_id].nodes.add(self.nodes[cur_node_id])
             cur_node_id += 1
+        self.patches[2].field_node = self.nodes[cur_node_id-1] # field workers in forest commute to fringe forest
 
 
         # Initialise agents
@@ -251,26 +256,38 @@ class BaselineModel(Model):
 
         for i in range(num_agents):
             forest_worker = False
+            field_worker = False
+
             work_node = None
-
-            if np.random.random() < self.forest_worker_prob:
-                # Assign a work node in forest, assume patch 3 = forest
-                # TODO: bake this into the movement model, not here.
-                # work_node = np.random.choice(self.patches[2].nodes).node_id
-                work_node = self.forest_node.node_id
-                forest_worker = True
-
             home_node = np.random.choice(num_households)
-            agent = Agent(state=agent_disease_states[i],
-                                   node=home_node,
-                                   movement_rate=movement_dist(),
-                                   movement_model=self.movement_model,
-                                   nu_h=nu_h_dist(),
-                                   mu_h=mu_h_dist(),
-                                   worker=forest_worker,
-                                   home_node=home_node,
-                                   model=self,
-                                   work_node=work_node
+
+            # Assign worker type
+            worker_type = np.random.choice(
+                range(3), # forest ; field ; non-worker
+                p=[self.forest_worker_prob,
+                   self.field_worker_prob,
+                   1-self.forest_worker_prob-self.field_worker_prob]
+            )
+
+            if worker_type == 0:
+                forest_worker = True
+                work_node = self.forest_node.node_id
+            elif worker_type == 1:
+                field_worker = True
+                work_node = self.patches[self.nodes[home_node].patch_id].field_node.node_id
+
+            agent = Agent(agent_id=i,
+                          state=agent_disease_states[i],
+                          node=home_node,
+                          movement_rate=movement_dist(),
+                          movement_model=self.movement_model,
+                          nu_h=nu_h_dist(),
+                          mu_h=mu_h_dist(),
+                          forest_worker=forest_worker,
+                          field_worker=field_worker,
+                          home_node=home_node,
+                          model=self,
+                          work_node=work_node
                           )
             self.agents[i] = agent
             self.nodes[agent.node].add_agent(agent)
@@ -306,32 +323,35 @@ class BaselineModel(Model):
         ---
         list
             List of tick-specific statistics to log."""
+        # Generate random numbers for agents
+        adopt_itns = np.random.random(size=self.num_agents)
+
         # (1) Update disease status of vectors and then hosts
         for patch in self.patches:
             patch.tick()
 
-        # (2) Move agents randomly
-        # Check if should be sleeping
+        # (2) Check if agents should be sleeping, move agents
         if (self.time*24 % 24 >= 18) or (self.time*24 % 24 <= 6):
             if self.asleep:
                 pass # Agents do not move when asleep
             else:
                 # Agents go to their home node and are asleep
-                self.statistics["go_home"] += [self.time]
                 for agent in self.agents:
                     self.graph.nodes[agent.node]["node"].remove_agent(agent)
                     self.graph.nodes[agent.home_node]["node"].add_agent(agent)
                     
                     agent.node = agent.home_node
 
-                    agent.trigger_itn_protection(self.prob_adopt_itn)
+                    # If agents adopt ITNs, set to active
+                    if adopt_itns[agent.agent_id] < self.prob_adopt_itn:
+                        agent.itn_active = True
                 self.asleep = True
         else:
             # Agents are awake
             self.asleep = False
 
             for agent in self.agents:
-                # Remove ITN protection
+                # When awake, ITN protection is off
                 agent.itn_active = False
                 agent.move()
 
@@ -341,8 +361,7 @@ class BaselineModel(Model):
 
 
     def run(self,
-            with_progress=False,
-            preventive_measures=True) -> Tuple[Dict[str, Any], List[int]]:
+            with_progress=False) -> Tuple[Dict[str, Any], List[int]]:
         """
         Run the model until a certain number of time steps.
 
@@ -358,9 +377,6 @@ class BaselineModel(Model):
             over time.
         """
         ticks = int(self.total_time/self.timestep)
-        if preventive_measures:
-            self.preventive_measures_enabled = True
-
         if with_progress:
             for _ in tqdm(range(ticks)):
                 self.tick()
@@ -417,7 +433,7 @@ class BaselineMovementModel(MovementModel):
         rho : float
             The movement rate of the agent.
         """
-        if agent.worker:
+        if agent.forest_worker or agent.field_worker:
             self.move_work(agent)
         else:
             self.move_random(agent, rho)
@@ -432,7 +448,7 @@ class BaselineMovementModel(MovementModel):
         agent : Agent
             The worker agent to be moved.
         """
-        assert agent.work_node is not None, f"`move_work()` triggered on non-working agent with node {agent.work_node} and worker={agent.worker}"
+        assert agent.work_node is not None, f"`move_work()` triggered on non-working agent with node {agent.work_node} and worker={agent.forest_worker}"
 
         if agent.node == agent.work_node:
             pass # Worker agents do not move in their work node during work hours
@@ -458,24 +474,21 @@ class BaselineMovementModel(MovementModel):
         rho : float
             The movement rate for the agent.
         """
-        assert not agent.worker, "Agent is a worker."
+        assert not (agent.forest_worker or agent.field_worker), "Agent is a worker."
 
         if np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
             # If an agent decides to move
             self.model.statistics["num_movements"] += 1
 
-            if np.random.random() < .599:
-                # Move to an open space/field
-                new_node = self.model.patches[self.model.graph.nodes[agent.node]["node"].patch_id].plantation_node.node_id
-            else:
-                # Move to a household uniformly
-                choices = [node_id for node_id in self.model.graph.adj[agent.node] if node_id < self.model.num_households]
+            # Move to a household uniformly
+            choices = [node_id for node_id in self.model.graph.adj[agent.node] if node_id < self.model.num_households]
 
-                # Only if an agent can actually move
-                if len(choices) > 0:
-                    new_node = np.random.choice(choices)
+            # Only if an agent can actually move
+            if len(choices) > 0:
+                new_node = np.random.choice(choices)
 
-            if new_node is not None:
+                assert new_node is not None
+
                 self.model.graph.nodes[agent.node]["node"].remove_agent(agent)
                 self.model.graph.nodes[new_node]["node"].add_agent(agent)
                 agent.node = new_node

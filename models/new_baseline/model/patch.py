@@ -47,8 +47,8 @@ class Patch:
     nodes : Set[Node]
         The set of nodes for the patch.
 
-    plantation_node : int
-        Plantation/field node for the patch.
+    field_node : int
+        Field/plantation node for the patch.
     """
     def __init__(self,
                  k: int,
@@ -63,7 +63,7 @@ class Patch:
                  r_v: float,
                  model: 'Model',
                  nodes: Set[Node] | None = None,
-                 plantation_node: Node | None = None) -> None:
+                 field_node: Node | None = None) -> None:
         self.k = k
         self.K_v = K_v
 
@@ -76,7 +76,7 @@ class Patch:
         self.nodes: Set[Node] = set() if nodes is None else nodes
         self.household_nodes = [node for node in self.nodes if node.activity.activity_id == 0]
 
-        self.plantation_node = plantation_node
+        self.field_node = field_node
         self.mosquito_model = MosquitoModel(patch_id=k,
                                             K_v=K_v,
                                             psi_v=psi_v,
@@ -136,8 +136,10 @@ class Patch:
                                                 I_v=self.mosquito_model.I,
                                                 N_v=self.mosquito_model.N_v)
             self.model.statistics["lambda_hj"].append(lambda_hj)
-            for agent in node.agents:
-                agent.update_state(lambda_hj)
+
+            rs = np.random.random(size=len(node.agents))
+            for r, agent in zip(rs, node.agents):
+                agent.update_state(r, lambda_hj)
 
 
     def _update_patch_values(self) -> None:
@@ -160,6 +162,7 @@ class Patch:
         seirs     = np.array([0., 0., 0., 0.])
         seirs_hat = np.array([0., 0., 0., 0.])
 
+        # TODO: Add segmentation based on risk group (forest/field/non-worker)
         for node in self.nodes:
             cur_seirs = np.array([0., 0., 0., 0.])
             

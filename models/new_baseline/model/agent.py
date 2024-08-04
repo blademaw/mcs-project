@@ -33,9 +33,13 @@ class Agent:
     mu_h : float
         The rate of recovery.
 
-    worker : bool
+    forest_worker : bool
         Whether the agent is a forest worker (commutes to the forest each day
         to work).
+
+    field_worker : bool
+        Whether the agent is a field worker (commits to their home patch field
+        during the day to work).
 
     home_node : int
         The node the agent resides in.
@@ -44,16 +48,19 @@ class Agent:
         The model the agent belongs to.
     """
     def __init__(self,
+                 agent_id: int,
                  state: DiseaseState,
                  node: int,
                  movement_rate: float,
                  movement_model: 'BaselineMovementModel',
                  nu_h: float,
                  mu_h: float,
-                 worker: bool,
+                 forest_worker: bool,
+                 field_worker: bool,
                  home_node: int,
                  model: 'Model',
                  work_node: int | None = None) -> None:
+        self.agent_id = agent_id
         self.state = state
         self.node  = node
         self.model = model
@@ -66,7 +73,8 @@ class Agent:
         self.movement_rate  = movement_rate
         self.movement_model = movement_model
 
-        self.worker = worker
+        self.forest_worker = forest_worker
+        self.field_worker = field_worker
         self.itn_active = False
 
         self.num_ticks_in_state = 0
@@ -78,23 +86,21 @@ class Agent:
         self.movement_model.move_agent(self, self.movement_rate)
 
 
-    def trigger_itn_protection(self, prob_adopt_itn: float) -> None:
-        if np.random.random() < prob_adopt_itn:
-            self.itn_active = True
-
-
-    def update_state(self, lambda_hj: float) -> None:
+    def update_state(self, r: float, lambda_hj: float) -> None:
         """
         Updates the SEIR state of the agent stochastically.
 
         Parameters
         ---
+        r : float
+            The random number generated for the agent (0 < r < 1)
+
         lambda_hj : float
             The force of infection on agents for the specific node.
         """
         self.num_ticks_in_state += 1
 
-        r = np.random.random()
+        # r = np.random.random()
 
         match self.state:
             case DiseaseState.SUSCEPTIBLE:
