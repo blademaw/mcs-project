@@ -10,6 +10,21 @@ Agent-based modelling is a computational technique to generate complex phenomena
 
 This project will consist of two phases. First, an existing agent-based model[^2] will be extended to analyse the impacts of using different behavioural frameworks from psychology as agent decision-making processes, in order to simulate the adoption of preventive measures within a community. Second, a targeted community-based intervention for vector control will be simulated, in order to evaluate effective strategies to target VBD spread in the context of risk perception and preventive behaviours.
 
+### The model
+
+![A visualisation of one model run.](img/demo.gif "Visualisation of simulation")
+
+The model in this project simulates a community (multiple villages/households) with agents (residents) that move about the map (a network). Each node in the above visualisation is a location agents can travel to, and each node has an associated activity the agent is assumed to engage in, with varying levels of vector exposure.
+
+Each location (node) has an associated _patch_ (in the above visualisation, there are three). These patches can be parameterised to encode heterogeneous geographical and environmental properties, altering the dynamics of vector populations within each patch (and consequentially, nodes of each patch). Each patch is governed by its own system of ordinary differential equations that encode the SEI (Susceptible-Exposed-Infected) model for vectors in a patch.
+
+These patch models are coupled with the agent-based network model. The figure below, adapted from Manore et al. (2015), conveys this coupling:
+
+![Diagrammatic representation of equation-based and agent-based models](img/architecture.png "Manore et al. model architecture")
+
+At each time step, information from the vector model is used to derive the force of infection on agents in corresponding nodes and patches. Reciprocally, the number of infectious agents in a patch (across all nodes) is used to derive the force of infection on vectors. Ultimately, these interactions give rise to the SEIR dynamics demonstrated in the visualisation.
+
+
 ## Purpose and structure of this repository
 
 This repository stores my work spanning the ~36 week-period of the MCS minor thesis project. Below, I describe the structure of the repository:
