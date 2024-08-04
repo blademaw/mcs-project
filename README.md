@@ -22,7 +22,7 @@ These patch models are coupled with the agent-based network model. The figure be
 
 ![Diagrammatic representation of equation-based and agent-based models](img/architecture.png "Manore et al. model architecture")
 
-At each time step, information from the vector model is used to derive the force of infection on agents in corresponding nodes and patches. Reciprocally, the number of infectious agents in a patch (across all nodes) is used to derive the force of infection on vectors. Ultimately, these interactions give rise to the SEIR dynamics demonstrated in the visualisation.
+At each time step, information from the vector model (**a**) is used to derive the force of infection on agents ($\lambda_{h,j}$) in corresponding nodes and patches (**b**). Reciprocally, the number of infectious agents in a patch (across all nodes) is used to derive the force of infection on vectors ($\lambda_v$). Ultimately, these interactions give rise to the SEIR dynamics demonstrated in the visualisation.
 
 
 ## Purpose and structure of this repository
