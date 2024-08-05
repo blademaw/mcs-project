@@ -48,10 +48,12 @@ class MosquitoModel:
                  time: float,
                  timestep: float,
                  solve_timestep: float,
-                 model: 'Model'
+                 model: 'Model',
+                 init_infect_prop: float
                 ):
         self.patch_id = patch_id
-        self.S, self.E, self.I = K_v, 0, 0
+
+        self.S, self.E, self.I = K_v*(1-init_infect_prop), 0, K_v*init_infect_prop
 
         self.N_v = K_v
         self.K_v = K_v

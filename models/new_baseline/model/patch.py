@@ -63,7 +63,8 @@ class Patch:
                  r_v: float,
                  model: 'Model',
                  nodes: Set[Node] | None = None,
-                 field_node: Node | None = None) -> None:
+                 field_node: Node | None = None,
+                 init_infect_vector_prop: float = 0) -> None:
         self.k = k
         self.K_v = K_v
 
@@ -86,7 +87,8 @@ class Patch:
                                             time=model.time,
                                             timestep=model.timestep,
                                             solve_timestep=model.mosquito_timestep,
-                                            model=model
+                                            model=model,
+                                            init_infect_prop=init_infect_vector_prop
                                             )
 
         # derived patch-specific values
@@ -112,8 +114,6 @@ class Patch:
 
     def tick(self):
         """Advance the patch model by one time step."""
-        self.model.statistics["patch_ticks"] += 1
-
         # If dawn/night/dusk, strengthen sigma_v (mosquito aggressiveness by 5x)
         sigma_v_modifier = 1
         if (self.model.time*24 % 24 >= 18) or (self.model.time*24 % 24 <= 8):

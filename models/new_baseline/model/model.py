@@ -136,6 +136,7 @@ class BaselineModel(Model):
                  edge_prob: float,
                  num_agents: int,
                  initial_infect_proportion: float,
+                 patch_init_infect_vector_prop_arr: List[float],
                  nu_h_dist: Callable[..., float],
                  mu_h_dist: Callable[..., float],
                  total_time: float,
@@ -171,9 +172,7 @@ class BaselineModel(Model):
         
         self.num_infected = 0
         self.statistics = {
-            "go_home": [],
             "time": [],
-            "patch_ticks": 0,
             "lambda_hj": [],
             "lambda_v": [],
             "num_infected": {
@@ -226,7 +225,8 @@ class BaselineModel(Model):
                 mu_v=mu_v_arr[patch_id],
                 r_v=psi_v_arr[patch_id]-mu_v_arr[patch_id],
                 model=self,
-                nodes=set(self.nodes[np.where(node_patch_ids == patch_id)])
+                nodes=set(self.nodes[np.where(node_patch_ids == patch_id)]),
+                init_infect_vector_prop=patch_init_infect_vector_prop_arr[patch_id]
             )
             self.patches[patch_id] = patch
 
