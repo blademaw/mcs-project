@@ -9,7 +9,7 @@ from .agent import Activity, Agent, Node
 from .patch import Patch, DiseaseState
 
 # Define activities used for location types
-HOUSEHOLD_ACTIVITY   = Activity(activity_id=0, alpha=.54)
+HOUSEHOLD_ACTIVITY   = Activity(activity_id=0, alpha=.43)
 FOREST_SITE_ACTIVITY = Activity(activity_id=1, alpha=1.)
 FIELD_SITE_ACTIVITY  = Activity(activity_id=2, alpha=1.)
 
@@ -180,12 +180,10 @@ class BaselineModel(Model):
                 1: [],
                 2: []
             },
-            "agent_disease_counts": [
-                    [0] * int(self.total_time/self.timestep),
-                    [0] * int(self.total_time/self.timestep),
-                    [0] * int(self.total_time/self.timestep),
-                    [0] * int(self.total_time/self.timestep)
-                ],
+            # 0 = forest worker;  1 = field worker; 2 = non-worker
+            "agent_disease_counts": np.zeros((3,
+                                              4,
+                                              int(self.total_time/self.timestep))),
             "num_movements": 0,
             "total_exposed": 0,
             "total_infected": 0,

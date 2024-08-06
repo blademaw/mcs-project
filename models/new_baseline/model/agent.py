@@ -79,6 +79,9 @@ class Agent:
 
         self.num_ticks_in_state = 0
 
+        # this saves me from deriving it each timestep
+        self._worker_type = 0 if forest_worker else 1 if field_worker else 2
+
 
     def move(self) -> None:
         """
@@ -104,7 +107,7 @@ class Agent:
 
         match self.state:
             case DiseaseState.SUSCEPTIBLE:
-                self.model.statistics["agent_disease_counts"][0][self.model.tick_counter] += 1
+                self.model.statistics["agent_disease_counts"][self._worker_type][0][self.model.tick_counter] += 1
 
                 efficacy = .99 if self.itn_active else 0
                 if r < (1 - np.exp(- self.model.timestep * lambda_hj))*(1-efficacy):
@@ -113,7 +116,7 @@ class Agent:
                     self.model.statistics["total_exposed"] += 1
 
             case DiseaseState.EXPOSED:
-                self.model.statistics["agent_disease_counts"][1][self.model.tick_counter] += 1
+                self.model.statistics["agent_disease_counts"][self._worker_type][1][self.model.tick_counter] += 1
                 self.model.statistics["total_time_in_state"][1] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.nu_h):
                     self.state = DiseaseState.INFECTED
@@ -123,7 +126,7 @@ class Agent:
                     self.model.num_infected += 1
 
             case DiseaseState.INFECTED:
-                self.model.statistics["agent_disease_counts"][2][self.model.tick_counter] += 1
+                self.model.statistics["agent_disease_counts"][self._worker_type][2][self.model.tick_counter] += 1
                 self.model.statistics["total_time_in_state"][2] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.mu_h):
                     self.state = DiseaseState.RECOVERED
@@ -131,7 +134,7 @@ class Agent:
                     self.model.statistics["total_recovered"] += 1
 
             case DiseaseState.RECOVERED:
-                self.model.statistics["agent_disease_counts"][3][self.model.tick_counter] += 1
+                self.model.statistics["agent_disease_counts"][self._worker_type][3][self.model.tick_counter] += 1
 
             case _:
                 pass
