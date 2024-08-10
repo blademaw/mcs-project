@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Set
+from typing import Set, Union
 
 import numpy as np
 
@@ -50,16 +50,16 @@ class Agent:
     def __init__(self,
                  agent_id: int,
                  state: DiseaseState,
-                 node: int,
+                 node: 'Node',
                  movement_rate: float,
                  movement_model: 'BaselineMovementModel',
                  nu_h: float,
                  mu_h: float,
                  forest_worker: bool,
                  field_worker: bool,
-                 home_node: int,
+                 home_node: 'Node',
                  model: 'Model',
-                 work_node: int | None = None) -> None:
+                 work_node: Union['Node', None] = None) -> None:
         self.agent_id = agent_id
         self.state = state
         self.node  = node
@@ -85,7 +85,8 @@ class Agent:
 
     def move(self) -> None:
         """
-        Moves the agent randomly."""
+        Moves the agent randomly.
+        """
         self.movement_model.move_agent(self, self.movement_rate)
 
 
@@ -170,6 +171,9 @@ class Node:
 
     activity : Activity
         The activity belonging to the node.
+
+    patch_id : int
+        The ID of the node's patch.
 
     agents : Set[Agent]
         The set of all agents in this node.
