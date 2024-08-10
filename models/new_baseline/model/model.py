@@ -164,11 +164,13 @@ class BaselineModel(Model):
         self.asleep = False
 
         # Entities
-        self.agents:  List[Agent] = np.full(num_agents, None, dtype=Agent)
+        self.agents:  List[Agent] = np.full(num_agents,
+                                            fill_value=None,
+                                            dtype=Agent)
         self.nodes:   List[Node]  = np.full(self.num_locations,
-                                            None,
+                                            fill_value=None,
                                             dtype=Node)
-        self.patches: List[Patch] = np.full(k, None, dtype=Patch)
+        self.patches: List[Patch] = np.full(k, fill_value=None, dtype=Patch)
         
         self.num_infected = 0
         self.statistics = {
@@ -200,14 +202,14 @@ class BaselineModel(Model):
         self.graph = nx.erdos_renyi_graph(self.num_locations, edge_prob)
 
         # Initialise households — distributed according to patch density
-        node_patch_ids = np.random.choice(k,
+        household_patch_ids = np.random.choice(k,
                                           num_households,
                                           p=patch_densities)
         cur_node_id = num_households
 
         # Add households to model
         for node_id in range(num_households):
-            self._add_node(node_id, node_patch_ids[node_id], HOUSEHOLD_ACTIVITY)
+            self._add_node(node_id, household_patch_ids[node_id], HOUSEHOLD_ACTIVITY)
 
         # Initialise patches
         for patch_id in range(k):
@@ -223,7 +225,7 @@ class BaselineModel(Model):
                 mu_v=mu_v_arr[patch_id],
                 r_v=psi_v_arr[patch_id]-mu_v_arr[patch_id],
                 model=self,
-                nodes=set(self.nodes[np.where(node_patch_ids == patch_id)]),
+                nodes=set(self.nodes[np.where(household_patch_ids == patch_id)]),
                 init_infect_vector_prop=patch_init_infect_vector_prop_arr[patch_id]
             )
             self.patches[patch_id] = patch
@@ -257,7 +259,7 @@ class BaselineModel(Model):
             field_worker = False
 
             work_node = None
-            home_node = np.random.choice(num_households)
+            home_node = self.nodes[np.random.choice(num_households)]
 
             # Assign worker type
             worker_type = np.random.choice(
@@ -269,14 +271,14 @@ class BaselineModel(Model):
 
             if worker_type == 0:
                 forest_worker = True
-                work_node = self.forest_node.node_id
+                work_node = self.forest_node
             elif worker_type == 1:
                 field_worker = True
-                work_node = self.patches[self.nodes[home_node].patch_id].field_node.node_id
+                work_node = self.patches[self.nodes[home_node.node_id].patch_id].field_node
 
             agent = Agent(agent_id=i,
                           state=agent_disease_states[i],
-                          node=home_node,
+                          node=home_node, # all agents start in their home node
                           movement_rate=movement_dist(),
                           movement_model=self.movement_model,
                           nu_h=nu_h_dist(),
@@ -288,7 +290,7 @@ class BaselineModel(Model):
                           work_node=work_node
                           )
             self.agents[i] = agent
-            self.nodes[agent.node].add_agent(agent)
+            agent.node.add_agent(agent)
 
         # Initialise disease states _per patch_
         for patch in self.patches:
@@ -303,6 +305,9 @@ class BaselineModel(Model):
             [agent.state==DiseaseState.INFECTED for agent in self.agents]
             ).sum()
         self.statistics["total_infected"] += self.num_infected
+
+        # Check that all patches know the nodes they have
+        assert sorted([i for l in [[n.node_id for n in p.nodes] for p in self.patches] for i in l]) == list(range(self.num_households + 3)), "At least one node is unaccounted for in a patch."
 
 
     def _add_node(self, node_id: int,
@@ -335,8 +340,8 @@ class BaselineModel(Model):
             else:
                 # Agents go to their home node and are asleep
                 for agent in self.agents:
-                    self.graph.nodes[agent.node]["node"].remove_agent(agent)
-                    self.graph.nodes[agent.home_node]["node"].add_agent(agent)
+                    self.graph.nodes[agent.node.node_id]["node"].remove_agent(agent)
+                    self.graph.nodes[agent.home_node.node_id]["node"].add_agent(agent)
                     
                     agent.node = agent.home_node
 
@@ -446,7 +451,7 @@ class BaselineMovementModel(MovementModel):
         agent : Agent
             The worker agent to be moved.
         """
-        assert agent.work_node is not None, f"`move_work()` triggered on non-working agent with node {agent.work_node} and worker={agent.forest_worker}"
+        assert agent.work_node is not None, f"`move_work()` triggered on non-working agent with node {agent.work_node.node_id} and worker={agent.forest_worker}"
 
         if agent.node == agent.work_node:
             pass # Worker agents do not move in their work node during work hours
@@ -454,8 +459,8 @@ class BaselineMovementModel(MovementModel):
             # TODO: move this process to a new function.
 
             # Worker agents go to work
-            self.model.graph.nodes[agent.node]["node"].remove_agent(agent)
-            self.model.graph.nodes[agent.work_node]["node"].add_agent(agent)
+            self.model.graph.nodes[agent.node.node_id]["node"].remove_agent(agent)
+            self.model.graph.nodes[agent.work_node.node_id]["node"].add_agent(agent)
             
             agent.node = agent.work_node
             
@@ -479,16 +484,14 @@ class BaselineMovementModel(MovementModel):
             self.model.statistics["num_movements"] += 1
 
             # Move to a household uniformly
-            choices = [node_id for node_id in self.model.graph.adj[agent.node] if node_id < self.model.num_households]
+            choices = [node_id for node_id in self.model.graph.adj[agent.node.node_id] if node_id < self.model.num_households and self.model.nodes[node_id].patch_id == agent.node.patch_id]
 
             # Only if an agent can actually move
             if len(choices) > 0:
-                new_node = np.random.choice(choices)
+                new_node = self.model.nodes[np.random.choice(choices)]
 
-                assert new_node is not None
-
-                self.model.graph.nodes[agent.node]["node"].remove_agent(agent)
-                self.model.graph.nodes[new_node]["node"].add_agent(agent)
+                self.model.graph.nodes[agent.node.node_id]["node"].remove_agent(agent)
+                self.model.graph.nodes[new_node.node_id]["node"].add_agent(agent)
                 agent.node = new_node
 
 
