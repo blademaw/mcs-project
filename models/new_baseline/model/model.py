@@ -143,7 +143,8 @@ class BaselineModel(Model):
                  mosquito_timestep: float,
                  prob_adopt_itn: float = .0,
                  forest_worker_prob: float = .05,
-                 field_worker_prob: float = .71) -> None:
+                 field_worker_prob: float = .71,
+                 stay_home_chance: float = 0.) -> None:
         # Assign model-specific parameters
         self.time = 0.0
         self.tick_counter = 0
@@ -158,6 +159,7 @@ class BaselineModel(Model):
 
         # Parameters for mobility and demographics
         assert (forest_worker_prob < 1 and field_worker_prob < 1) and (forest_worker_prob + field_worker_prob <= 1), "Forest and field worker probabilities must sum to at most 1."
+        self.stay_home_chance = stay_home_chance
         self.forest_worker_prob = forest_worker_prob
         self.field_worker_prob = field_worker_prob
         self.prob_adopt_itn = prob_adopt_itn
@@ -186,6 +188,10 @@ class BaselineModel(Model):
             "agent_disease_counts": np.zeros((3,
                                               4,
                                               int(self.total_time/self.timestep))),
+            "agent_infected_unique": np.zeros((3, int(self.total_time/self.timestep))),
+            "infection_records": [],
+            "time_in_household": 0,
+            "time_in_field": 0,
             "num_movements": 0,
             "total_exposed": 0,
             "total_infected": 0,
@@ -257,6 +263,7 @@ class BaselineModel(Model):
         for i in range(num_agents):
             forest_worker = False
             field_worker = False
+            mover = True
 
             work_node = None
             home_node = self.nodes[np.random.choice(num_households)]
@@ -275,6 +282,9 @@ class BaselineModel(Model):
             elif worker_type == 1:
                 field_worker = True
                 work_node = self.patches[self.nodes[home_node.node_id].patch_id].field_node
+            else:
+                if np.random.random() < self.stay_home_chance:
+                    mover = False
 
             agent = Agent(agent_id=i,
                           state=agent_disease_states[i],
@@ -287,7 +297,8 @@ class BaselineModel(Model):
                           field_worker=field_worker,
                           home_node=home_node,
                           model=self,
-                          work_node=work_node
+                          work_node=work_node,
+                          mover=mover
                           )
             self.agents[i] = agent
             agent.node.add_agent(agent)
@@ -479,7 +490,7 @@ class BaselineMovementModel(MovementModel):
         """
         assert not (agent.forest_worker or agent.field_worker), "Agent is a worker."
 
-        if np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
+        if agent.mover and np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
             # If an agent decides to move
             self.model.statistics["num_movements"] += 1
 

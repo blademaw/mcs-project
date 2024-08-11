@@ -59,7 +59,8 @@ class Agent:
                  field_worker: bool,
                  home_node: 'Node',
                  model: 'Model',
-                 work_node: Union['Node', None] = None) -> None:
+                 work_node: Union['Node', None] = None,
+                 mover: bool = True) -> None:
         self.agent_id = agent_id
         self.state = state
         self.node  = node
@@ -72,6 +73,7 @@ class Agent:
         
         self.movement_rate  = movement_rate
         self.movement_model = movement_model
+        self.mover = mover
 
         self.forest_worker = forest_worker
         self.field_worker = field_worker
@@ -104,8 +106,6 @@ class Agent:
         """
         self.num_ticks_in_state += 1
 
-        # r = np.random.random()
-
         match self.state:
             case DiseaseState.SUSCEPTIBLE:
                 self.model.statistics["agent_disease_counts"][self._worker_type][0][self.model.tick_counter] += 1
@@ -115,14 +115,25 @@ class Agent:
                     self.state = DiseaseState.EXPOSED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_exposed"] += 1
+                    self.model.statistics["infection_records"] += [{"time": self.model.tick_counter,
+                                                                    "patch": self.node.patch_id,
+                                                                    "worker_type": self._worker_type,
+                                                                    "activity_id": self.node.activity.activity_id}]
 
             case DiseaseState.EXPOSED:
                 self.model.statistics["agent_disease_counts"][self._worker_type][1][self.model.tick_counter] += 1
                 self.model.statistics["total_time_in_state"][1] += 1
+
+                # Mosquito biting agent subprocess
                 if r < 1 - np.exp(- self.model.timestep * self.nu_h):
                     self.state = DiseaseState.INFECTED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_infected"] += 1
+                    self.model.statistics["agent_infected_unique"][self._worker_type][self.model.tick_counter] += 1
+                    # self.model.statistics["infection_records"] += [{"time": self.model.tick_counter,
+                    #                                                 "patch": self.node.patch_id,
+                    #                                                 "worker_type": self._worker_type,
+                    #                                                 "activity_id": self.node.activity.activity_id}]
                     # NOTE: tracking
                     self.model.num_infected += 1
 
