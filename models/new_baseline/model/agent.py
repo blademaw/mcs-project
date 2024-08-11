@@ -69,11 +69,17 @@ class Agent:
         self.work_node = work_node
 
         self.nu_h = nu_h
+        """$\nu_h$, the rate at which agents become infectious."""
+
         self.mu_h = mu_h
+        """$\mu_h$, the rate at which agents recover."""
         
         self.movement_rate  = movement_rate
+        """$\rho$, the rate at which agents move during a day."""
+
         self.movement_model = movement_model
         self.mover = mover
+        """Whether the (non-working) agent moves or stays at home during the day."""
 
         self.forest_worker = forest_worker
         self.field_worker = field_worker
@@ -82,7 +88,9 @@ class Agent:
         self.num_ticks_in_state = 0
 
         # this saves me from deriving it each timestep
+        # TODO: convert this to an enum.
         self._worker_type = 0 if forest_worker else 1 if field_worker else 2
+        """Type of worker. 0 is a forest worker; 1 is field worker; 2 is non-worker."""
 
 
     def move(self) -> None:
@@ -118,7 +126,8 @@ class Agent:
                     self.model.statistics["infection_records"] += [{"time": self.model.tick_counter,
                                                                     "patch": self.node.patch_id,
                                                                     "worker_type": self._worker_type,
-                                                                    "activity_id": self.node.activity.activity_id}]
+                                                                    "activity_id": self.node.activity.activity_id,
+                                                                    "home_patch": self.home_node.patch_id}]
 
             case DiseaseState.EXPOSED:
                 self.model.statistics["agent_disease_counts"][self._worker_type][1][self.model.tick_counter] += 1

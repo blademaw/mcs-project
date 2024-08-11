@@ -147,23 +147,40 @@ class BaselineModel(Model):
                  stay_home_chance: float = 0.) -> None:
         # Assign model-specific parameters
         self.time = 0.0
+        """The current time of the model, in days."""
+
+        self.k = k
         self.tick_counter = 0
+        """The current tick."""
+
         self.timestep = timestep
+        """The timestep amount (in days) of the model."""
+
         self.total_time = total_time
+        """The maximum number of time (in days) the model runs for."""
+
         self.mosquito_timestep = mosquito_timestep
+        """The timestep of the mosquito model."""
+
         self.movement_model = BaselineMovementModel(model=self)
         self.num_agents = num_agents
         self.num_households = num_households
         self.num_locations = num_households + 1 + 2 # 1 forest site + 2 fields
+        """The total number of locations in the model."""
+
         self.K_v_arr = K_v_arr
+        """The array of `K_v`, mosquito carrying capacities per patch."""
 
         # Parameters for mobility and demographics
         assert (forest_worker_prob < 1 and field_worker_prob < 1) and (forest_worker_prob + field_worker_prob <= 1), "Forest and field worker probabilities must sum to at most 1."
         self.stay_home_chance = stay_home_chance
+        """The chance for non-working agents to remain in their households during the day."""
+
         self.forest_worker_prob = forest_worker_prob
         self.field_worker_prob = field_worker_prob
         self.prob_adopt_itn = prob_adopt_itn
         self.asleep = False
+        """Whether agents should be asleep currently in the model."""
 
         # Entities
         self.agents:  List[Agent] = np.full(num_agents,
@@ -178,7 +195,7 @@ class BaselineModel(Model):
         self.statistics = {
             "time": [],
             "lambda_hj": [],
-            "lambda_v": [],
+            "lambda_v": [[], [], []],
             "num_infected": {
                 0: [],
                 1: [],
@@ -189,6 +206,7 @@ class BaselineModel(Model):
                                               4,
                                               int(self.total_time/self.timestep))),
             "agent_infected_unique": np.zeros((3, int(self.total_time/self.timestep))),
+            "patch_values": [None for _ in range(k*int(self.total_time/self.timestep))],
             "infection_records": [],
             "time_in_household": 0,
             "time_in_field": 0,
@@ -346,9 +364,7 @@ class BaselineModel(Model):
 
         # (2) Check if agents should be sleeping, move agents
         if (self.time*24 % 24 >= 18) or (self.time*24 % 24 <= 6):
-            if self.asleep:
-                pass # Agents do not move when asleep
-            else:
+            if not self.asleep:
                 # Agents go to their home node and are asleep
                 for agent in self.agents:
                     self.graph.nodes[agent.node.node_id]["node"].remove_agent(agent)

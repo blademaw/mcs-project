@@ -66,12 +66,20 @@ class Patch:
                  field_node: Node | None = None,
                  init_infect_vector_prop: float = 0) -> None:
         self.k = k
+        """ID of the patch."""
+
         self.K_v = K_v
+        """$K_v$, the carrying capacity of the patch."""
 
         self.orig_sigma_v = sigma_v
+        """The regular $\sigma_v$ value, the maximum mosquito bite demand per day."""
+
         self.sigma_v = sigma_v
+        """$\sigma_v$, the (current) maximum mosquito bite demand per day."""
 
         self.sigma_h = sigma_h
+        """$\sigma_h$, the maximum number of bites on a mosquito per day."""
+
         self.model = model
 
         self.nodes: Set[Node] = set() if nodes is None else nodes
@@ -105,9 +113,13 @@ class Patch:
         self.N_hat_h = None
 
         self.beta_hv = beta_hv
+        """$\beta_{hv}$, the probability of mosquito-to-human transmission."""
+
         self.beta_vh = beta_vh
+        """$\beta_{vh}$, the probability of human-to-mosquito transmission."""
 
         self.b   = None
+        """$b$, the total number of successful bites between mosquitoes and agents in the patch."""
         self.b_v = None
         self.b_h = None
 
@@ -125,7 +137,7 @@ class Patch:
 
         # Advance the patch model (EBM)
         lambda_v = self.get_force_on_vectors()
-        self.model.statistics["lambda_v"].append(lambda_v)
+        self.model.statistics["lambda_v"][self.k].append(lambda_v)
         self.mosquito_model.tick(lambda_v)
 
         # For each node in this patch, progress disease states of agents
@@ -155,6 +167,11 @@ class Patch:
         self.b   = (self.sigma_v * m.N_v * self.sigma_h * self.N_hat_h)/(self.sigma_v * m.N_v + self.sigma_h * self.N_hat_h)
         self.b_v = self.b/m.N_v
         self.b_h = self.b/self.N_hat_h
+
+        self.model.statistics["patch_values"][self.model.tick_counter*(self.model.k) + self.k] = {"patch_id": self.k,
+                                                                                                  "b": self.b,
+                                                                                                  "b_v": self.b_v,
+                                                                                                  "b_h": self.b_h}
 
 
     def _count_agents_in_patch(self):
