@@ -124,12 +124,8 @@ class Patch:
         self.b_h = None
 
 
-    def tick(self):
+    def tick(self, sigma_v_modifier):
         """Advance the patch model by one time step."""
-        # If dawn/night/dusk, strengthen sigma_v (mosquito aggressiveness by 5x)
-        sigma_v_modifier = 1
-        if (self.model.time*24 % 24 >= 18) or (self.model.time*24 % 24 <= 8):
-            sigma_v_modifier = 4
         self.sigma_v = self.orig_sigma_v*sigma_v_modifier
 
         # Update patch values from ABM (agent statistics)
@@ -149,9 +145,9 @@ class Patch:
                                                 N_v=self.mosquito_model.N_v)
             self.model.statistics["lambda_hj"].append(lambda_hj)
 
-            rs = np.random.random(size=len(node.agents))
-            for r, agent in zip(rs, node.agents):
-                agent.update_state(r, lambda_hj)
+            rs = np.random.random(size=len(node.agent_ids))
+            for r, agent_id in zip(rs, node.agent_ids):
+                self.model.agents[agent_id].update_state(r, lambda_hj)
 
 
     def _update_patch_values(self) -> None:
@@ -179,25 +175,11 @@ class Patch:
         seirs     = np.array([0., 0., 0., 0.])
         seirs_hat = np.array([0., 0., 0., 0.])
 
-        # TODO: Add segmentation based on risk group (forest/field/non-worker)
         for node in self.nodes:
-            cur_seirs = np.array([0., 0., 0., 0.])
-            
-            for agent in node.agents:
-                match agent.state:
-                    case DiseaseState.SUSCEPTIBLE:
-                        cur_seirs[0] += 1
-                    case DiseaseState.EXPOSED:
-                        cur_seirs[1] += 1
-                    case DiseaseState.INFECTED:
-                        cur_seirs[2] += 1
-                    case DiseaseState.RECOVERED:
-                        cur_seirs[3] += 1
+            seirs     += node.seirs
+            seirs_hat += node.activity.alpha * node.seirs
 
-            seirs     += cur_seirs
-            seirs_hat += node.activity.alpha * cur_seirs
-
-            self.model.statistics["node_seir"][node.node_id].append(cur_seirs)
+            self.model.statistics["node_seir"][node.node_id].append(node.seirs)
 
         self.model.statistics["num_infected"][self.k].append(seirs[2])
         return seirs, seirs_hat

@@ -120,6 +120,9 @@ class Agent:
 
                 efficacy = .99 if self.itn_active else 0
                 if r < (1 - np.exp(- self.model.timestep * lambda_hj))*(1-efficacy):
+                    self.node.seirs[0] -= 1
+                    self.node.seirs[1] += 1
+                    
                     self.state = DiseaseState.EXPOSED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_exposed"] += 1
@@ -135,6 +138,9 @@ class Agent:
 
                 # Mosquito biting agent subprocess
                 if r < 1 - np.exp(- self.model.timestep * self.nu_h):
+                    self.node.seirs[1] -= 1
+                    self.node.seirs[2] += 1
+
                     self.state = DiseaseState.INFECTED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_infected"] += 1
@@ -150,6 +156,9 @@ class Agent:
                 self.model.statistics["agent_disease_counts"][self._worker_type][2][self.model.tick_counter] += 1
                 self.model.statistics["total_time_in_state"][2] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.mu_h):
+                    self.node.seirs[2] -= 1
+                    self.node.seirs[3] += 1
+
                     self.state = DiseaseState.RECOVERED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_recovered"] += 1
@@ -195,19 +204,22 @@ class Node:
     patch_id : int
         The ID of the node's patch.
 
-    agents : Set[Agent]
-        The set of all agents in this node.
+    agents : Set[int]
+        The set of all agents (IDs) in this node.
     """
     def __init__(self,
                  node_id: int,
                  patch_id: int,
                  activity: Activity,
-                 agents: Set[Agent] | None = None) -> None:
+                 agent_ids: Set[int] = None) -> None:
         self.node_id = node_id
         self.patch_id = patch_id
-        self.activity= activity
-        
-        self.agents: Set[Agent]  = set() if agents is None else agents
+        self.activity = activity
+
+        self.agent_ids: Set[int] = set() if agent_ids is None else agent_ids
+
+        self.seirs = np.zeros(4)
+        """SEIR values for a node (no need for counting each tick)."""
         
         
     def get_force_on_hosts(self,
@@ -244,9 +256,11 @@ class Node:
     
     def add_agent(self, agent: Agent) -> None:
         """Add an agent to the node."""
-        self.agents.add(agent)
-    
-    
+        self.seirs[agent.state.value] += 1
+        self.agent_ids.add(agent.agent_id)
+
+
     def remove_agent(self, agent: Agent) -> None:
         """Remove an agent from the node."""
-        self.agents.remove(agent)
+        self.seirs[agent.state.value] -= 1
+        self.agent_ids.remove(agent.agent_id)
