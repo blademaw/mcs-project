@@ -176,6 +176,13 @@ class BaselineModel(Model):
         self.stay_home_chance = stay_home_chance
         """The chance for non-working agents to remain in their households during the day."""
 
+        self._base_temp = None
+        self.temp = None
+        """The current temperature in the model."""
+
+        self.c_t = np.zeros(int(self.total_time/self.timestep))
+        """The number of new illnesses at timestep i."""
+
         self.forest_worker_prob = forest_worker_prob
         self.field_worker_prob = field_worker_prob
         self.prob_adopt_itn = prob_adopt_itn
@@ -210,6 +217,7 @@ class BaselineModel(Model):
             "infection_records": [],
             "time_in_household": 0,
             "time_in_field": 0,
+            "temperature": np.zeros(int(self.total_time/self.timestep)),
             "num_movements": 0,
             "total_exposed": 0,
             "total_infected": 0,
@@ -324,15 +332,6 @@ class BaselineModel(Model):
             self.agents[i] = agent
             agent.node.add_agent(agent)
 
-        # Initialise disease states _per patch_
-        # for patch in self.patches:
-        #     for node in patch.nodes:
-        #         for agent in node.agents:
-        #             agent.state = np.random.choice(
-        #                 [DiseaseState.SUSCEPTIBLE, DiseaseState.INFECTED],
-        #                 p=[1-initial_infect_proportion,
-        #                    initial_infect_proportion])
-
         self.num_infected += np.array(
             [agent.state==DiseaseState.INFECTED for agent in self.agents]
             ).sum()
@@ -342,6 +341,14 @@ class BaselineModel(Model):
         self.move_choices = [[] for _ in range(num_households)]
         for node_id in range(num_households):
             self.move_choices[node_id] = [dest_id for dest_id in self.graph.adj[node_id] if dest_id < self.num_households and self.nodes[dest_id].patch_id == self.nodes[node_id].patch_id]
+
+        # Create agent social network
+        self.agent_network = nx.Graph()
+        self.agent_network.add_nodes_from(list(range(self.num_agents)))
+        for a1 in range(num_agents):
+            connected_locs = self.move_choices[self.agents[a1].node.node_id]
+            connected_agent_ids = [a2 for a2s in [self.nodes[i].agent_ids for i in connected_locs] for a2 in a2s]
+            self.agent_network.add_edges_from([(a1, a2) for a2 in connected_agent_ids])
 
         # Check that all patches know the nodes they have
         assert sorted([i for l in [[n.node_id for n in p.nodes] for p in self.patches] for i in l]) == list(range(self.num_households + 3)), "At least one node is unaccounted for in a patch."
@@ -363,6 +370,14 @@ class BaselineModel(Model):
         ---
         list
             List of tick-specific statistics to log."""
+        # (0) Update temperature
+        time_in_hrs = self.tick_counter*(self.timestep*24) % 24
+        if time_in_hrs == 0:
+            # new day = new random base temperature
+            self._temp_base = np.random.normal(25, 2)
+        self.temp = self._temp_base + 5*np.sin((np.pi/12)*time_in_hrs - np.pi)
+        self.statistics["temperature"][self.tick_counter] = self.temp
+
         # Generate random numbers for agents
         adopt_itns = np.random.random(size=self.num_agents)
 

@@ -159,6 +159,8 @@ class Agent:
                     self.node.seirs[2] -= 1
                     self.node.seirs[3] += 1
 
+                    self.model.c_t[self.model.tick_counter] += 1
+
                     self.state = DiseaseState.RECOVERED
                     self.num_ticks_in_state = 0
                     self.model.statistics["total_recovered"] += 1
