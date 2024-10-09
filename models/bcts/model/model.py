@@ -5,10 +5,10 @@ import networkx as nx
 import numpy as np
 from tqdm import tqdm
 
-from .utils import DiseaseState
 from .agent import Activity, Agent, Node
-from .patch import Patch
 from .hbm import HealthBeliefModel
+from .patch import Patch
+from .utils import DiseaseState
 
 # Define activities used for location types
 HOUSEHOLD_ACTIVITY   = Activity(activity_id=0, alpha=.43)
@@ -143,6 +143,9 @@ class BaselineModel(Model):
                  mu_h_dist: Callable[..., float],
                  total_time: float,
                  mosquito_timestep: float,
+                 high_severity: bool,
+                 high_benefits: bool,
+                 high_barriers: bool,
                  prob_adopt_itn: float = .0,
                  forest_worker_prob: float = .05,
                  field_worker_prob: float = .71,
@@ -182,7 +185,7 @@ class BaselineModel(Model):
         self.temp = None
         """The current temperature in the model."""
 
-        self.c_t = np.zeros(int(self.total_time/self.timestep))
+        self.c_t = [np.zeros(int(self.total_time/self.timestep)) for _ in range(k)]
         """The number of new illnesses at timestep i."""
         self._chi = np.zeros(num_agents)
         self._omega = np.zeros(num_agents)
@@ -252,23 +255,23 @@ class BaselineModel(Model):
             self._add_node(node_id, household_patch_ids[node_id], HOUSEHOLD_ACTIVITY)
 
         # Initialise patches
-        for patch_id in range(k):
+        for i in range(k):
             patch = Patch(
-                k=patch_id,
-                K_v=K_v_arr[patch_id],
-                sigma_v=sigma_v_arr[patch_id],
-                sigma_h=sigma_h_arr[patch_id],
-                psi_v=psi_v_arr[patch_id],
-                beta_hv=beta_hv_arr[patch_id],
-                beta_vh=beta_vh_arr[patch_id],
-                nu_v=nu_v_arr[patch_id],
-                mu_v=mu_v_arr[patch_id],
-                r_v=psi_v_arr[patch_id]-mu_v_arr[patch_id],
+                k=i,
+                K_v=K_v_arr[i],
+                sigma_v=sigma_v_arr[i],
+                sigma_h=sigma_h_arr[i],
+                psi_v=psi_v_arr[i],
+                beta_hv=beta_hv_arr[i],
+                beta_vh=beta_vh_arr[i],
+                nu_v=nu_v_arr[i],
+                mu_v=mu_v_arr[i],
+                r_v=psi_v_arr[i]-mu_v_arr[i],
                 model=self,
-                nodes=set(self.nodes[np.where(household_patch_ids == patch_id)]),
-                init_infect_vector_prop=patch_init_infect_vector_prop_arr[patch_id]
+                nodes=set(self.nodes[np.where(household_patch_ids == i)]),
+                init_infect_vector_prop=patch_init_infect_vector_prop_arr[i]
             )
-            self.patches[patch_id] = patch
+            self.patches[i] = patch
 
 
         ## Create and add special location nodes
@@ -281,12 +284,12 @@ class BaselineModel(Model):
         cur_node_id += 1
 
         # 2. Plantation/field nodes (patches 0, 1; outer/fringe forest)
-        for patch_id in range(2):
+        for i in range(2):
             self._add_node(cur_node_id,
-                           patch_id,
+                           i,
                            FIELD_SITE_ACTIVITY)
-            self.patches[patch_id].field_node = self.nodes[cur_node_id]
-            self.patches[patch_id].nodes.add(self.nodes[cur_node_id])
+            self.patches[i].field_node = self.nodes[cur_node_id]
+            self.patches[i].nodes.add(self.nodes[cur_node_id])
             cur_node_id += 1
         self.patches[2].field_node = self.nodes[cur_node_id-1] # field workers in forest commute to fringe forest
 
@@ -297,7 +300,7 @@ class BaselineModel(Model):
                                                 p=[1-initial_infect_proportion,initial_infect_proportion],
                                                 size=self.num_agents)
         agent_t_crits = np.random.normal(29, 1, size=self.num_agents)
-
+        
         for i in range(num_agents):
             forest_worker = False
             field_worker = False
@@ -341,17 +344,6 @@ class BaselineModel(Model):
             self.agents[i] = agent
             agent.node.add_agent(agent)
 
-            self._hbm_delta_val = .9
-            hbm = HealthBeliefModel(agent=agent,
-                                    model=self,
-                                    ORs=np.array([1, .998, 2.78, 2.69, .53]),
-                                    delta=self._hbm_delta_val,
-                                    s_star=.1*self.num_agents,
-                                    chi=.5,
-                                    omega=.5,
-                                    t_crit=agent_t_crits[i])
-            agent.hbm = hbm
-
         self.num_infected += np.array(
             [agent.state==DiseaseState.INFECTED for agent in self.agents]
             ).sum()
@@ -374,6 +366,32 @@ class BaselineModel(Model):
         # Check that all patches know the nodes they have
         assert sorted([i for l in [[n.node_id for n in p.nodes] for p in self.patches] for i in l]) == list(range(self.num_households + 3)), "At least one node is unaccounted for in a patch."
 
+        # Set HBM
+        self.s_stars = np.array([np.sum([a.node.patch_id == j for a in self.agents]) for j in range(3)])*.02
+
+        for agent, t_crit_val in zip(self.agents, agent_t_crits):
+            self._hbm_delta_val = .99
+            hbm = HealthBeliefModel(agent=agent,
+                                    model=self,
+                                    # TODO: find out where susceptibility OR came from...
+                                    ORs=np.array([1,     # constant
+                                                1.8,   # susceptibility
+                                                2.78,  # severity
+                                                1.0,   # benefits
+                                                .53,   # barriers
+                                                2.69   # cues to action
+                                                ]),
+                                    delta=self._hbm_delta_val,
+                                    s_star=self.s_stars[agent.home_node.patch_id],
+                                    chi=.5,
+                                    omega=.5,
+                                    t_crit=t_crit_val,
+                                    severity=int(high_severity),
+                                    benefits=int(high_benefits),
+                                    barriers=int(high_barriers)
+                                    )
+            agent.hbm = hbm
+
 
     def _add_node(self, node_id: int,
                   patch_id: int,
@@ -393,18 +411,16 @@ class BaselineModel(Model):
             List of tick-specific statistics to log."""
         # (0) Update temperature
         time_in_hrs = self.tick_counter*(self.timestep*24) % 24
-        if time_in_hrs == 0:
-            # new day = new random base temperature
-            self._temp_base = np.random.normal(25, 2)
-        self.temp = self._temp_base + 5*np.sin((np.pi/11)*time_in_hrs - .8*np.pi)
-        self.statistics["temperature"][self.tick_counter] = self.temp
-
-        # Generate random numbers for agents
-        adopt_itns = np.random.random(size=self.num_agents)
-        p_vals     = np.zeros(self.num_agents)
+        # if time_in_hrs == 0:
+        #     # new day = new random base temperature
+        #     self._temp_base = np.random.normal(25, 2)
+        # self.temp = self._temp_base + 5*np.sin((np.pi/11)*time_in_hrs - .8*np.pi)
+        # self.statistics["temperature"][self.tick_counter] = self.temp
 
         # HACK: generate s_t now because assume all agents have same delta
-        s_t = np.sum([(self._hbm_delta_val**i)*(self.c_t[self.tick_counter-i-1]) for i in range(self.tick_counter)])
+        s_t = [0 for _ in range(self.k)]
+        for patch_id in range(len(self.patches)):
+            s_t[patch_id] = np.sum([(self._hbm_delta_val**i)*(self.c_t[patch_id][self.tick_counter-i-1]) for i in range(self.tick_counter)])
 
         # (1) Update disease status of vectors and then hosts
 
@@ -421,6 +437,10 @@ class BaselineModel(Model):
         # if (self.time*24 % 24 >= 18) or (self.time*24 % 24 <= 6):
         if (time_in_hrs >= 18) or (time_in_hrs <= 4):
             if not self.asleep:
+                # Generate random numbers for agents
+                p_vals     = np.zeros(self.num_agents)
+                adopt_itns = np.random.random(size=self.num_agents)
+
                 # Agents go to their home node and are asleep
                 for agent in self.agents:
                     self.graph.nodes[agent.node.node_id]["node"].remove_agent(agent)
@@ -429,7 +449,7 @@ class BaselineModel(Model):
                     agent.node = agent.home_node
 
                     # If agents adopt ITNs, set to active
-                    p = agent.hbm.compute_prob_behaviour(s_t=s_t) # HACK: generating s_t globally
+                    p = agent.hbm.compute_prob_behaviour(s_t=s_t[agent.home_node.patch_id]) # HACK: generating s_t globally
                     p_vals[agent.agent_id] = p
                     self.statistics["chi"][self.tick_counter] = np.mean(self._chi)
                     self.statistics["omega"][self.tick_counter] = np.mean(self._omega)

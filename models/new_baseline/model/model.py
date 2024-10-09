@@ -204,21 +204,20 @@ class BaselineModel(Model):
             "lambda_hj": [],
             "lambda_v": [[], [], []],
             "num_infected": {
-                0: [],
-                1: [],
-                2: []
+                0: [], # forest workers
+                1: [], # field workers
+                2: []  # non-workers
             },
-            # 0 = forest worker;  1 = field worker; 2 = non-worker
             "agent_disease_counts": np.zeros((3,
                                               4,
                                               int(self.total_time/self.timestep))),
             "agent_infected_unique": np.zeros((3, int(self.total_time/self.timestep))),
             "patch_values": [None for _ in range(k*int(self.total_time/self.timestep))],
             "infection_records": [],
-            "time_in_household": 0,
-            "time_in_field": 0,
-            "temperature": np.zeros(int(self.total_time/self.timestep)),
-            "num_movements": 0,
+            # "time_in_household": 0,
+            # "time_in_field": 0,
+            # "temperature": np.zeros(int(self.total_time/self.timestep)),
+            # "num_movements": 0,
             "total_exposed": 0,
             "total_infected": 0,
             "total_recovered": 0,
@@ -227,6 +226,7 @@ class BaselineModel(Model):
                           1: np.zeros((int(total_time/timestep), 3)),
                           2: np.zeros((int(total_time/timestep), 3))},
             "node_seir": {i: [] for i in range(self.num_locations)},
+            "agent_group_pops": [0, 0, 0], # to be filled in later with agent occupation amounts
         }
 
 
@@ -337,7 +337,9 @@ class BaselineModel(Model):
             ).sum()
         self.statistics["total_infected"] += self.num_infected
 
-        # Opitmisation: precompute choices for non-workers to move given node
+        self.statistics["agent_group_pops"] = [np.sum([a.node.patch_id == j for a in self.agents]) for j in range(3)]
+
+        # Optimisation: precompute choices for non-workers to move given node
         self.move_choices = [[] for _ in range(num_households)]
         for node_id in range(num_households):
             self.move_choices[node_id] = [dest_id for dest_id in self.graph.adj[node_id] if dest_id < self.num_households and self.nodes[dest_id].patch_id == self.nodes[node_id].patch_id]
@@ -376,7 +378,7 @@ class BaselineModel(Model):
             # new day = new random base temperature
             self._temp_base = np.random.normal(25, 2)
         self.temp = self._temp_base + 5*np.sin((np.pi/11)*time_in_hrs - .8*np.pi)
-        self.statistics["temperature"][self.tick_counter] = self.temp
+        # self.statistics["temperature"][self.tick_counter] = self.temp
 
         # Generate random numbers for agents
         adopt_itns = np.random.random(size=self.num_agents)
@@ -531,7 +533,7 @@ class BaselineMovementModel(MovementModel):
         """
         if agent.mover and np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
             # If an agent decides to move
-            self.model.statistics["num_movements"] += 1
+            # self.model.statistics["num_movements"] += 1
 
             # Move to a household uniformly
             choices = self.model.move_choices[agent.node.node_id]

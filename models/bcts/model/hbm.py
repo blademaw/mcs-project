@@ -14,7 +14,10 @@ class HealthBeliefModel:
                  s_star: float,
                  chi: float,
                  omega: float,
-                 t_crit: float) -> None:
+                 t_crit: float,
+                 severity: bool,
+                 benefits: bool,
+                 barriers: bool) -> None:
         self.agent = agent
         self.model = model
 
@@ -35,14 +38,23 @@ class HealthBeliefModel:
         self.t_crit = t_crit
         """Minimum temperature for an agent to declare 'high' barrier to ITN use."""
 
+        self.severity = severity
+        """Whether perceived severity is high for the agent."""
+
+        self.barriers = barriers
+        """Whether perceived barriers are high for the agent."""
+
+        self.benefits = benefits
+        """Whether perceived benefits are high for the agent."""
         
     def compute_prob_behaviour(self, s_t: float = None) -> float:
         indicators = np.array([
             1,
             self._susceptibility(s_t=s_t),
-            self._severity(),
-            self._benefits(),
-            self._barriers()
+            self.severity,#self._severity(),
+            self.benefits,#self._benefits(),
+            self.barriers,#self._barriers()
+            self._cues_to_action()
         ])
 
         product = np.prod(self.ORs**indicators)
@@ -50,19 +62,10 @@ class HealthBeliefModel:
 
         
     def _susceptibility(self, s_t: float = None) -> int:
-        # s_t = s_t if s_t else np.sum([(self.delta**i)*(self.model.c_t[self.model.tick_counter-i-1]) for i in range(self.model.tick_counter)])
         return 1 if s_t >= self.s_star else 0
 
 
-    def _severity(self) -> int:
-        connections = self.model.agent_network[self.agent.agent_id]
-        prop_cases = (1+np.sum([self.model.agents[a_id].state == DiseaseState.INFECTED for a_id in connections]))/(1+len(connections))
-        # cases = np.sum([self.model.agents[a_id].state == DiseaseState.INFECTED for a_id in connections])
-        self.model._chi[self.agent.agent_id] = prop_cases
-        return 1 if prop_cases >= self.chi else 0
-
-
-    def _benefits(self) -> int:
+    def _cues_to_action(self) -> int:
         connections = self.model.agent_network[self.agent.agent_id]
         prop_itn = (1+np.sum([self.model.agents[a_id].used_itn_last_night for a_id in connections]))/(1+len(connections))
         self.model._omega[self.agent.agent_id] = prop_itn
