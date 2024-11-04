@@ -4,3 +4,9 @@
 *$py.class
 **/*.ipynb_checkpoints/
 **/saved_runs/
+*.pkl
+
+# don't want images/figures; take up too much space
+**/*figs/
+figures/
+analysis/**/img/
