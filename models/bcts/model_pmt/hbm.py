@@ -57,39 +57,39 @@ class ProtectionMotivationTheory:
         """Maladaptive intrinsic rewards are always high for agents."""
         
     def compute_prob_behaviour(self, s_t: float) -> float:
+        intrinsic = 0.5
         extrinsic = self._extrinsic()
         susceptibility = self._susceptibility(s_t=s_t) 
 
         response_eff = self._response_efficacy()
+        # response_eff = self.response_eff
         self_eff = self._self_efficacy()
 
-        # adding stochasticity with a beta distribution
-        betas = np.random.beta(a=1, b=10, size=2)
+        # NOTE: this is the non-stochastic case
+        severity = self.severity
+        costs    = self.costs
 
-        severity     = gen_beta(self.severity, betas[0])
-        costs        = gen_beta(self.costs, betas[1])
-
-        # intrinsic    = gen_beta(self.intrinsic, betas[0])
-        # response_eff = gen_beta(self.response_eff, betas[2])
-        # response_eff = self._response_efficacy()
-        # self_eff     = self._self_efficacy()
-        # self_eff     = gen_beta(self.self_eff, betas[3])
-        # severity = self.severity
-        # costs = self.costs
-
-        # self._s_eff = self_eff
-
-        threat = extrinsic - .5*(severity + susceptibility)
-        coping = .5*(response_eff + self_eff) - costs
-        # threat = .5*((intrinsic + extrinsic) - (severity + susceptibility))
-        # coping = response_eff - costs
+        threat = .5*((intrinsic + extrinsic) - (severity + susceptibility))
+        # threat = extrinsic - .5*(severity + susceptibility)
+        coping = .5*(self_eff + response_eff) - costs
 
         self.model._alpha_t[self.agent.agent_id] = threat
         self.model._alpha_c[self.agent.agent_id] = coping
 
         assert -1 <= coping <= 1, f"Coping {coping} is not in [-1,1]"
         assert -1 <= threat <= 1, f"Threat {threat} is not in [-1,1]"
+        return 1/(1+np.e**(-3*(coping-threat)))
 
+
+        # NOTE: this is probabilistic triggering
+        # p_adaptive = 1/(1+np.e**(-3*(coping-threat)))
+        # r = np.random.random()
+        # if r < p_adaptive:
+        #     return odds_ratio_to_prob(1.8 * 2.78)
+        # else:
+        #     return odds_ratio_to_prob((1/2.69) * .53)
+
+        # NOTE: this is deterministic triggering
         if threat > coping: # maladaptive behaviour
             return odds_ratio_to_prob((1/2.69) * .53) # ORs for high barriers, low benefits
         else: # adaptive behaviour
@@ -127,25 +127,62 @@ class ProtectionMotivationTheory:
         return min(s_t/self.s_star, 1)
 
     
+    # whether agent is 'used to' using the ITNs
     def _self_efficacy(self):
-        # whether agent is 'used to' using the ITNs
+        # if there is no reliable data yet, set to default
+        # if self.model.time < self.model.max_itn_score:
+            # s_eff = 0.5
+        # else:
         s_eff = min(self.agent.itn_score/self.model.max_itn_score, 1)
+
         self.model._s_eff[self.agent.agent_id] = s_eff
         return s_eff
 
 
     def _extrinsic(self):
+        """External rewards of *not* protecting oneself."""
         connections = self.model.agent_network[self.agent.agent_id]
-        prop_itn = (1+np.sum([self.model.agents[a_id].used_itn_last_night for a_id in connections]))/(1+len(connections))
-        self.model._omega[self.agent.agent_id] = prop_itn
-        if prop_itn >= self.omega: self.model.statistics["count_omega"][self.model.tick_counter] += 1
+        
+        if len(connections) == 0:
+            omega = 0.5
+        else:
+            prop_itn = np.sum([self.model.agents[a_id].used_itn_last_night for a_id in connections])/len(connections)
+            omega = max(1-prop_itn/self.omega, 0)
+            self.model._omega[self.agent.agent_id] = omega
 
-        return min(prop_itn/self.omega, 1)
+        # if omega >= self.omega: self.model.statistics["count_omega"][self.model.tick_counter] += 1
+        return omega
         # return 1 if prop_itn >= self.omega else 0
 
 
     def _response_efficacy(self):
-        # 1 - proportion of infected + use ITNs in network / proportion of infected in network
+        # connections = self.model.agent_network[self.agent.agent_id]
+        #
+        # itn_users = [a_id for a_id in connections if self.model.agents[a_id].used_itn_last_night]
+        # if len(itn_users) == 0:
+        #     return 0.5
+        #
+        # not_infs  = len([a_id for a_id in itn_users if self.model.agents[a_id].state in (DiseaseState.SUSCEPTIBLE, DiseaseState.EXPOSED)])
+        # chi = not_infs/len(itn_users)
+        #
+        # self.model._chi[self.agent.agent_id] = chi
+        # return chi
+
+        # susc = [a_id for a_id in connections if self.model.agents[a_id].state in (DiseaseState.SUSCEPTIBLE, DiseaseState.EXPOSED)]
+        #
+        # if (num_susc := len(susc)) == 0:
+        #     return 0.5
+        #
+        # num_itns = np.sum([self.model.agents[a_id].itn_score >= self.model.max_itn_score/2 for a_id in susc])
+        # self.model._chi[self.agent.agent_id] = num_itns/num_susc
+        # return num_itns/num_susc
+
+        # if there is no reliable data yet, set to default
+        # if self.model.time < self.model.max_itn_score:
+            # chi = 0.5
+        # else:
+        # otherwise, 1 - proportion of infected + use ITNs in network /
+        # proportion of infected in network
         connections = self.model.agent_network[self.agent.agent_id]
 
         # find num infected
@@ -153,11 +190,13 @@ class ProtectionMotivationTheory:
         if (num_infs := len(infs)) == 0:
             return 0.5
 
-        # find ITN users and infected
-        num_itn = np.sum([self.model.agents[a_id].itn_score >= self.model.max_itn_score/2 for a_id in infs])
+        # find consistent ITN users and infected
+        # num_itn = np.sum([self.model.agents[a_id].itn_score > 0 for a_id in infs])
+        # num_itn = np.sum([self.model.agents[a_id].itn_score >= self.model.max_itn_score/2 for a_id in infs])
+        # num_itn = np.sum([self.model.agents[a_id].itn_score == self.model.max_itn_score for a_id in infs])
+        num_itn = np.sum([self.model.agents[a_id].used_itn_last_night for a_id in infs])
+        chi = 1-(num_itn/num_infs)
 
-        # if (1-(num_itn/num_infs)) < 0.1: print(num_itn, "/", num_infs)
-
-        self.model._chi[self.agent.agent_id] = 1-(num_itn/num_infs)
-        return 1 - (num_itn/num_infs)
+        self.model._chi[self.agent.agent_id] = chi
+        return chi
 

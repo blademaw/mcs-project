@@ -149,7 +149,8 @@ class BaselineModel(Model):
                  prob_adopt_itn: float = .0,
                  forest_worker_prob: float = .05,
                  field_worker_prob: float = .71,
-                 stay_home_chance: float = 0.) -> None:
+                 stay_home_chance: float = 0.,
+                 init_itn_score: float = 0.0) -> None:
         # Assign model-specific parameters
         self.time = 0.0
         """The current time of the model, in days."""
@@ -187,12 +188,15 @@ class BaselineModel(Model):
 
         self.c_t = [np.zeros(int(self.total_time/self.timestep)) for _ in range(k)]
         """The number of new illnesses at timestep i."""
-        self._chi = np.zeros(num_agents)
         self._omega = np.zeros(num_agents)
+        self._s_eff = np.zeros(num_agents)
+        self._chi   = np.zeros(num_agents)
 
         self.forest_worker_prob = forest_worker_prob
         self.field_worker_prob = field_worker_prob
         self.prob_adopt_itn = prob_adopt_itn
+        self.max_itn_score = 10
+
         self.asleep = False
         """Whether agents should be asleep currently in the model."""
 
@@ -207,37 +211,41 @@ class BaselineModel(Model):
         
         self.num_infected = 0
         self.statistics = {
+            # general stats needed for plots:
             "time": [],
-            "lambda_hj": [],
             "lambda_v": [[], [], []],
-            "num_infected": {
-                0: [],
-                1: [],
-                2: []
-            },
-            # 0 = forest worker;  1 = field worker; 2 = non-worker
-            "agent_disease_counts": np.zeros((3,
+            "agent_disease_counts": np.zeros((3, # 0 = forest worker;  1 = field worker; 2 = non-worker
                                               4,
                                               int(self.total_time/self.timestep))),
             "agent_infected_unique": np.zeros((3, int(self.total_time/self.timestep))),
             "patch_values": [None for _ in range(k*int(self.total_time/self.timestep))],
             "infection_records": [],
-            "time_in_household": 0,
-            "time_in_field": 0,
-            "temperature": np.zeros(int(self.total_time/self.timestep)),
-            "used_itn": np.zeros(int(self.total_time/self.timestep)),
-            "prob_values": np.zeros(int(self.total_time/self.timestep)),
-            "chi": np.zeros(int(self.total_time/self.timestep)),
-            "omega": np.zeros(int(self.total_time/self.timestep)),
-            "num_movements": 0,
-            "total_exposed": 0,
             "total_infected": 0,
-            "total_recovered": 0,
-            "total_time_in_state": [0, 0, 0, 0],
             "patch_sei": {0: np.zeros((int(total_time/timestep), 3)),
-                          1: np.zeros((int(total_time/timestep), 3)),
-                          2: np.zeros((int(total_time/timestep), 3))},
-            "node_seir": {i: [] for i in range(self.num_locations)},
+                1: np.zeros((int(total_time/timestep), 3)),
+                2: np.zeros((int(total_time/timestep), 3))},
+
+
+            # HBM-specific
+            "prob_values": np.zeros(int(self.total_time/self.timestep)),
+            "omega": np.zeros(int(self.total_time/self.timestep)),
+            "self_eff": np.zeros(int(self.total_time/self.timestep)),
+            "chi": np.zeros(int(self.total_time/self.timestep)),
+
+
+            # NOTE: unused
+            # "lambda_hj": [],
+            # "num_infected": {
+            #     0: [],
+            #     1: [],
+            #     2: []
+            # },
+            # "time_in_household": 0,
+            # "time_in_field": 0,
+            # "temperature": np.zeros(int(self.total_time/self.timestep)),
+            # "used_itn": np.zeros(int(self.total_time/self.timestep)),
+            # "num_movements": 0,
+            # "node_seir": {i: [] for i in range(self.num_locations)},
         }
 
 
@@ -339,7 +347,8 @@ class BaselineModel(Model):
                           home_node=home_node,
                           model=self,
                           work_node=work_node,
-                          mover=mover
+                          mover=mover,
+                          itn_score=init_itn_score,
                           )
             self.agents[i] = agent
             agent.node.add_agent(agent)
@@ -348,6 +357,7 @@ class BaselineModel(Model):
             [agent.state==DiseaseState.INFECTED for agent in self.agents]
             ).sum()
         self.statistics["total_infected"] += self.num_infected
+        self.statistics["agent_group_pops"] = [np.sum([a.node.patch_id == j for a in self.agents]) for j in range(3)]
 
         # Opitmisation: precompute choices for non-workers to move given node
         self.move_choices = [[] for _ in range(num_households)]
@@ -374,16 +384,16 @@ class BaselineModel(Model):
             hbm = HealthBeliefModel(agent=agent,
                                     model=self,
                                     # TODO: find out where susceptibility OR came from...
-                                    ORs=np.array([1,     # constant
-                                                1.8,   # susceptibility
+                                    ORs=np.array([1,   # constant
+                                                1.82,   # susceptibility
                                                 2.78,  # severity
-                                                1.0,   # benefits
+                                                1.47,# 1.0,   # benefits
                                                 .53,   # barriers
+                                                1.3,#9.48,  # self-efficacy
                                                 2.69   # cues to action
                                                 ]),
                                     delta=self._hbm_delta_val,
                                     s_star=self.s_stars[agent.home_node.patch_id],
-                                    chi=.5,
                                     omega=.5,
                                     t_crit=t_crit_val,
                                     severity=int(high_severity),
@@ -409,13 +419,7 @@ class BaselineModel(Model):
         ---
         list
             List of tick-specific statistics to log."""
-        # (0) Update temperature
         time_in_hrs = self.tick_counter*(self.timestep*24) % 24
-        # if time_in_hrs == 0:
-        #     # new day = new random base temperature
-        #     self._temp_base = np.random.normal(25, 2)
-        # self.temp = self._temp_base + 5*np.sin((np.pi/11)*time_in_hrs - .8*np.pi)
-        # self.statistics["temperature"][self.tick_counter] = self.temp
 
         # HACK: generate s_t now because assume all agents have same delta
         s_t = [0 for _ in range(self.k)]
@@ -451,18 +455,20 @@ class BaselineModel(Model):
                     # If agents adopt ITNs, set to active
                     p = agent.hbm.compute_prob_behaviour(s_t=s_t[agent.home_node.patch_id]) # HACK: generating s_t globally
                     p_vals[agent.agent_id] = p
-                    self.statistics["chi"][self.tick_counter] = np.mean(self._chi)
-                    self.statistics["omega"][self.tick_counter] = np.mean(self._omega)
                     
                     if adopt_itns[agent.agent_id] < p:
+                        agent.itn_score = min(agent.itn_score+1, self.max_itn_score)
                         agent.itn_active = True
                         agent.used_itn_last_night = True
-
-                        self.statistics["used_itn"][self.tick_counter] += 1
+                        # self.statistics["used_itn"][self.tick_counter] += 1
                     else:
+                        agent.itn_score = max(agent.itn_score-.25, 0)
                         agent.used_itn_last_night = False
                 
+                self.statistics["omega"][self.tick_counter] = np.mean(self._omega)
+                self.statistics["self_eff"][self.tick_counter] = np.mean(self._s_eff)
                 self.statistics["prob_values"][self.tick_counter] = np.mean(p_vals)
+                self.statistics["chi"][self.tick_counter] = np.mean(self._chi)
 
                 self.asleep = True
         else:
@@ -589,10 +595,8 @@ class BaselineMovementModel(MovementModel):
         rho : float
             The movement rate for the agent.
         """
+        # If an agent decides to move
         if agent.mover and np.random.random() < (1 - np.exp(-self.model.timestep*rho)):
-            # If an agent decides to move
-            self.model.statistics["num_movements"] += 1
-
             # Move to a household uniformly
             choices = self.model.move_choices[agent.node.node_id]
 

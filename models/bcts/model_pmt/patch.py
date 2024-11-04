@@ -5,6 +5,7 @@ import numpy as np
 from .agent import Node
 from .mosquito_model import MosquitoModel
 
+
 class Patch:
     """
     Represents an area covering nodes with a corresponding mosquito 'cloud'.
@@ -143,7 +144,7 @@ class Patch:
                                                 beta_hv=self.beta_hv,
                                                 I_v=self.mosquito_model.I,
                                                 N_v=self.mosquito_model.N_v)
-            self.model.statistics["lambda_hj"].append(lambda_hj)
+            # self.model.statistics["lambda_hj"].append(lambda_hj)
 
             rs = np.random.random(size=len(node.agent_ids))
             for r, agent_id in zip(rs, node.agent_ids):
@@ -179,9 +180,9 @@ class Patch:
             seirs     += node.seirs
             seirs_hat += node.activity.alpha * node.seirs
 
-            self.model.statistics["node_seir"][node.node_id].append(node.seirs)
+            # self.model.statistics["node_seir"][node.node_id].append(node.seirs)
 
-        self.model.statistics["num_infected"][self.k].append(seirs[2])
+        # self.model.statistics["num_infected"][self.k].append(seirs[2])
         return seirs, seirs_hat
 
 

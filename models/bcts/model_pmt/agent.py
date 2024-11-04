@@ -57,7 +57,8 @@ class Agent:
                  model: 'Model',
                  work_node: Union['Node', None] = None,
                  mover: bool = True,
-                 hbm: ProtectionMotivationTheory | None = None) -> None:
+                 hbm: ProtectionMotivationTheory | None = None,
+                 itn_score: float = 0.0) -> None:
         self.agent_id = agent_id
         self.state = state
         self.node  = node
@@ -92,7 +93,7 @@ class Agent:
         self._worker_type = 0 if forest_worker else 1 if field_worker else 2
         """Type of worker. 0 is a forest worker; 1 is field worker; 2 is non-worker."""
 
-        self.itn_score = 0.0 # how much of an ITN 'user' this agent is
+        self.itn_score = itn_score # how much of an ITN 'user' this agent is
 
 
     def move(self) -> None:
@@ -127,7 +128,7 @@ class Agent:
                     
                     self.state = DiseaseState.EXPOSED
                     self.num_ticks_in_state = 0
-                    self.model.statistics["total_exposed"] += 1
+                    # self.model.statistics["total_exposed"] += 1
                     self.model.statistics["infection_records"] += [{"time": self.model.tick_counter,
                                                                     "patch": self.node.patch_id,
                                                                     "worker_type": self._worker_type,
@@ -136,7 +137,7 @@ class Agent:
 
             case DiseaseState.EXPOSED:
                 self.model.statistics["agent_disease_counts"][self._worker_type][1][self.model.tick_counter] += 1
-                self.model.statistics["total_time_in_state"][1] += 1
+                # self.model.statistics["total_time_in_state"][1] += 1
 
                 # Mosquito biting agent subprocess
                 if r < 1 - np.exp(- self.model.timestep * self.nu_h):
@@ -156,7 +157,7 @@ class Agent:
 
             case DiseaseState.INFECTED:
                 self.model.statistics["agent_disease_counts"][self._worker_type][2][self.model.tick_counter] += 1
-                self.model.statistics["total_time_in_state"][2] += 1
+                # self.model.statistics["total_time_in_state"][2] += 1
                 if r < 1 - np.exp(- self.model.timestep * self.mu_h):
                     self.node.seirs[2] -= 1
                     self.node.seirs[3] += 1
@@ -165,7 +166,7 @@ class Agent:
 
                     self.state = DiseaseState.RECOVERED
                     self.num_ticks_in_state = 0
-                    self.model.statistics["total_recovered"] += 1
+                    # self.model.statistics["total_recovered"] += 1
 
             case DiseaseState.RECOVERED:
                 self.model.statistics["agent_disease_counts"][self._worker_type][3][self.model.tick_counter] += 1
