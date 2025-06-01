@@ -1,0 +1,300 @@
+\section{Replicating the baseline model}\label{sec:baseline_model}
+
+In this chapter, I describe the process of replicating and validating an existing model of vector-borne disease (VBD) spread. As outlined in the previous chapter, agent-based models (ABMs) are a suitable approach to representing VBD spread due to their ability to naturally incorporate individual-level heterogeneity and interventions. To benefit from the vast body of existing ABM VBD modelling literature, I base my work on an existing model that I extend with preventive measures and behaviour change theories. By employing an existing ABM, I ground my research using an accepted model within the field that lays the conceptual foundation for this project.
+
+%The first task and contribution of this project is the replication of the selected baseline model.
+The process of replicating the foundational ABM covered in this chapter provides confidence that the model functions as intended prior to further extensions and analysis. However, as outlined in the literature review, replicating ABMs from even well-defined ODD protocol descriptions can be challenging. Therefore, qualitative and quantitative comparisons of the results from the replicated model are necessary to ensure the correctness of the baseline model implementation across a range of scenarios. In the remainder of this chapter, I describe the chosen model to replicate and extend, along with the validation process to ensure the correctness of the ABM.
+
+\subsection{Methods}
+
+The model I chose as a foundation for this research is the hybrid ABM from \citet{manore_network-patch_2015}. The model builds on work by \citet{adams_man_2009} and \citet{perkins_heterogeneity_2013} to recreate a VBD outbreak, in which agents move about a network that spans different regions with distinct populations of mosquitoes. The dynamics of these mosquito populations are described by independent systems of ordinary differential equations (ODEs) that influence---and are influenced by---the agent-based component. Through the coupling of these two sub-models, VBD infection is spread through a combination of agent movement across regions and local mosquito population infection dynamics.
+
+Many ABMs of VBD spread are designed to investigate specific entomological or epidemiological aspects of VBDs, which may limit their ability to generalise results if used as baseline models to incorporate preventive behaviours. For example, \citet{dommar_agent-based_2014} developed an ABM of chikungunya spread where mosquito populations were tied to precipitation estimates to investigate the timing and loci of disease spread. \citet{selvaraj_vector_2020} simulated malaria transmission to investigate evolutionary genetic mosquito resistance to insecticides. Incorporating preventive behaviours in such models may require behavioural processes to be designed around specific mechanisms that are not entirely relevant to this project. As an example, the focus on insecticide resistance in \citet{selvaraj_vector_2020} is arguably irrelevant to the main dynamics of preventive behaviours, and modelling this additional dimension may add unnecessary complexity to the model. Such precisely defined models may also present challenges during validation and parameterisation due to a lack of relevant data available.
+
+Conversely, the model from \citet{manore_network-patch_2015} offers unique advantages due to its general formulation and part-ABM, part-ODE design. Originally proposed in \citet{mniszewski_towards_2014}, the equation-based patch sub-model draws on traditional VBD modelling literature to approximate mosquito population dynamics within regions (\textit{patches}) where mosquito populations are assumed to be well-mixed (often described as a \q{cloud} of mosquitoes). Patches in the model correspond to different geographical areas characterised by heterogeneous underlying environmental factors, and a network is overlaid on top of these patches which agents traverse according to an underlying movement model. Overall, this novel yet flexible approach offers a general framework for a VBD outbreak, and combined with the fact the model has previously been extended \cite{mateus_c_modeling_2021}, it is a well-suited foundation.
+
+\subsubsection{Model description}\label{sec:baseline-model-description}
+
+I used the Python programming language to replicate the baseline model from \citet{manore_network-patch_2015} due to the language's flexibility, abundant ecosystem for scientific computing, and external libraries for visualisation. Below, I follow the Overview, Design concepts, and Details (ODD) protocol \cite{grimm_standard_2006,grimm_odd_2020} to describe the model. To further aid replicability, I provide access to all code through a GitHub repository\footnote{\url{https://github.com/blademaw/mcs-project}}.
+
+\odd{1. Purpose and patterns}
+
+The purpose of the baseline model is to implement a computational representation of VBD spread through localised mosquito populations and network-wide agent mobility. The model from \citet{manore_network-patch_2015} produces an outbreak scenario of VBD spread with no re-infection mechanism, meaning the model is not equipped for endemic or steady-state prevalence dynamics. Specifically in this project, the model serves as a baseline to extend with features for preventive behaviours. The main pattern that served as a criterion for the model's utility in \citet{manore_network-patch_2015} was: \q{heterogeneity in mosquito habitat and host movement [altered] the dynamics of the initial spread and spatial patterns of a mosquito-borne disease.} This was investigated by varying mosquito densities in patches and simulating different agent movement tendencies.
+
+\input{figures/network-patch-architecture-fig}
+
+\odd{2. Entities, state variables, and scales}
+
+There are three entities in the model: First, each agent represents a human, and thus a host of the VBD. The model from \citet{manore_network-patch_2015} employs the SEIR (Susceptible, Exposed, Infected, and Recovered) epidemiological classes for disease progression, meaning agents belong to one of these states at any given time step. In their experiments, \citet{manore_network-patch_2015} specify one time step as six hours (0.25 days) with a simulation runtime of 200 days (for a total of 800 ticks). Each agent occupies a single node, which is the second entity, representing a location or activity in the model. These nodes are connected with edges that form an Erdős–Rényi network\footnote{The choice of an Erdős–Rényi network is not explicitly justified in \citet{manore_network-patch_2015}, however, I retain the same network topology in my replicated and extended models to ensure replication.}. Because agents traverse a network, space is not explicitly represented within the model. As shown in Figure~\ref{fig:manore-abm}, nodes have a location type $j$ which influences the relative vector exposure parameter of a node, $\alpha_j$. For example, an indoor shopping centre with air conditioning would have a lower exposure parameter than an outdoor campsite. Ultimately, this allows for heterogeneous exposure rates to mosquitoes when agents occupy different loci or carry out different activities.
+
+Every node in the model is located within a single patch, which is the third entity. Each patch in the model is described by a system of mean-field ODEs with a distinct parameter set that characterises the progressive dynamics for a mosquito population in a compartmental SEI (Susceptible, Exposed, Infected) model. The parameters of these patches are based on \q{environmental properties correlated with the mosquito's life cycle,} and the density of vector populations through biotic (e.g. vegetation) and abiotic (e.g. temperature and humidity) factors \cite{manore_network-patch_2015}. For example, patch $k=3$ in Figure~\ref{fig:manore-abm} may have a higher carrying capacity of mosquitoes than other patches because of swamp-like environmental features that can support a larger mosquito population.
+
+\odd{3. Process overview and scheduling}
+
+At every time step $t$, the model executes the following two processes:
+
+\begin{enumerate}
+    \item Agents and patches of mosquitoes update their disease states.
+    \begin{enumerate}
+        \item Each patch collects information relevant to its state (e.g., number of infectious agents in the patch, vector exposure parameters across nodes in the patch).
+        \item The patch mosquito SEI ODE model is solved forward in time using the derived patch information.
+        \item Each agent uses the new mosquito patch information to update their disease state through the SEIR sub-model.
+    \end{enumerate}
+    \item Agents move about the network based on their movement model (described later in \hyperref[oddsec:submodels]{\textit{7. Sub-models}}).
+\end{enumerate}
+
+\odd{4. Design concepts}
+
+The design concepts included in the model are basic principles, emergence, interaction, stochasticity, collectives, and observation. The model does not include any mechanisms for adaption, objectives, learning, prediction, or sensing.
+
+\paragraph{Basic principles.} The model is designed to demonstrate the spread of a VBD through a human population traversing heterogeneous patches of mosquito populations. Representing spatial locations as a network that agents traverse is a common practice in epidemiological ABMs \cite{vizanko_modeling_2024, mao_modeling_2014, frias-martinez_agent-based_2011} and the mosquito ODE sub-model is based on a rich history of VBD modelling and metapopulation models \cite{mniszewski_towards_2014}.
+
+\paragraph{Emergence.} SIR dynamics emerge from agents who traverse the model environment and infect mosquito populations across patches. These mosquito populations further spread the disease in their patch to agents, creating a positive feedback loop of infection. As \citet{manore_network-patch_2015} discovered, heterogeneity in both agent movement patterns and patch mosquito densities impacted the rate and severity of disease spread.
+
+\paragraph{Interaction.} Agents do not directly interact to infect one another. Rather, there is a mediated process in which agents infect mosquitoes, and there is a latent period until mosquitoes can re-infect agents in their patch.
+
+\paragraph{Stochasticity.} Agents are exposed to, infected with, and recover from the disease through a random process influenced by the mosquito population in their current patch. Additionally, agents move about the network according to a non-deterministic movement model (described in \hyperref[oddsec:submodels]{\textit{7. Sub-models}}).
+
+\paragraph{Collectives.} At each time step, agents in patches are aggregated by disease state and used in equation \eqref{eq:mosquito} to inform disease progression of the corresponding mosquito population.
+
+\paragraph{Observation.} Information collected across model runs includes the total number of infected agents throughout the simulation and the number of agents in each disease state per patch at each time step.
+
+\phantomsection
+\label{oddsec:initialisation}
+
+\odd{5. Initialisation}
+
+First, the model environment is initialised depending on the number of patches, the number of locations (nodes) $n$, and the number of agents $N_h$ (where the subscript $h$ stands for \q{host} or \q{human}). The Erdős–Rényi network is constructed using the Python library \textit{NetworkX} \cite{hagberg_exploring_2008} with $n$ nodes and probability $p=.03$ of including each edge in the network. Locations are distributed randomly to patches based on patch densities. For example, with two patches, the patch densities $\left(\frac{1}{2},\frac{1}{2}\right)$ would uniformly assign nodes to the two patches, whereas the densities $\left(\frac{2}{3},\frac{1}{3}\right)$ would, on average, assign two third of nodes to the first patch and the rest to the second patch.
+
+Each node is then randomly assigned an activity $j$ with a vector exposure parameter $\alpha_{j}$ depending on the densities of activity types. Each patch $k$ in the model is initialised with an entirely susceptible mosquito population with the size of the carrying capacity of the patch $K^{(k)}_v$ (the subscript $v$ stands for \q{vector}). Finally, a proportion of agents in each patch are infected with the disease (0.5\% in \citet{manore_network-patch_2015}), while the rest of the agents begin as susceptible to the disease.
+
+\odd{6. Input data}
+
+This model does not make use of input data to represent time-varying processes. However, the model could be extended to dynamically calibrate patch densities, initial infection proportions, and mosquito patch carrying capacities based on real-world data.
+
+\phantomsection
+\label{oddsec:submodels}
+
+\odd{7. Sub-models}
+
+The two main sub-models present in the model are the agent-based disease progression sub-model and the patch models for mosquito populations.
+
+\paragraph{Vector patch dynamics.} A patch's vector (or mosquito) disease dynamics are described by the following system of ODEs:
+
+\begin{equation} \label{eq:mosquito}
+\begin{split}
+\odv{S_v}{t}&=h(N_v, t)-\lambda_v(t) S_v - \mu_v S_v, \\[5pt]
+\odv{E_v}{t}&=\lambda_v(t) S_v - \nu_v E_v - \mu_v E_v, \\[5pt]
+\odv{I_v}{t}&=\nu_v E_v - \mu_v I_v,
+\end{split}
+\end{equation}
+where $h(N_v,t)$ is vector emergence at time $t$ (number of vectors born into the susceptible population) and $\lambda_v(t)$ is the average \textit{force of infection} on vectors (by infectious agents) at time $t$. The average latent period until vectors become infectious after being exposed is $1/\nu_v$, and $1/\mu_v$ is the average vector lifespan. Each system of equations is specific to a given patch $k$, although this is not denoted by any notation unless specified for emphasis (with a superscript that denotes the $k^{\text{th}}$ patch).
+
+Vector emergence within a patch at time step $t$ is defined as:
+
+\begin{equation}
+h(N_v,t)=N_v\left(\psi_v - \frac{r_v N_v}{K_v}\right),
+\end{equation}
+where $\psi_v$ is the natural per-capita vector birth rate, and thus $r_v=\psi_v-\mu_v$ is the intrinsic growth rate of vectors. $K_v$ is the carrying capacity of vectors specific to the patch. The force of infection on vectors within each patch $k$ is defined as the rate of infection per vector per unit time:
+
+\begin{equation}
+    \lambda_v=b^{(k)}_v\cdot \beta_{vh}\cdot \left( \frac{\hat{I}_h}{\hat{N}_h} \right),
+\end{equation}\label{eq:lambda-v}
+which depends on the rate of contact (biting) between hosts and vectors $b^{(k)}_v$, the probability of disease transmission from an infectious host to a vector $\beta_{vh}$, and the proportion of infectious hosts in the $k^{\text{th}}$ patch, where $\hat{I}_h=\sum_j{\alpha_j I^{(k)}_{h,j}}$ is the scaled number of infectious hosts in the patch according to agents' exposure to vectors. Similarly, $\hat{N}_h=\sum_j{\alpha_j N^{(k)}_{h,j}}$ is the number of agents in the patch scaled by their exposure amounts $\alpha_j$ according to their current activity $j$. Put simply, the force of infection on vectors is a function of the contact rate between vectors in the patch and the number of infectious agents scaled by their exposure parameters.
+
+The total number of bites between hosts and vectors in each patch $k$ is:%The number of bites between vectors and hosts is first calculated as:
+
+\begin{equation}\label{eq:bites}
+    b^{(k)}=\frac{\sigma_v N_v \sigma_h \hat{N}_h}{\sigma_v N_v + \sigma_h \hat{N}_h},
+\end{equation}
+where $\sigma_v$ represents the total number of bites a mosquito would yield if hosts were freely available, and $\sigma_h$ is the maximum number of bites a host can sustain in a given time step. The biting rates for hosts and vectors are derived from \eqref{eq:bites}. The number of bites per vector is given by $b^{(k)}_v=b^{(k)}/N_v$, and the average number of bites per host is given by $b_{h,j}^{(k)}=b^{(k)}/\hat{N}_h$. These biting rates are used in both the mosquito ODE patch sub-model and the agent disease progression sub-model, effectively coupling the equation-based and agent-based components of the baseline model.
+
+\paragraph{Agent disease progression.} During each time step, agents may progress from some disease state (S, E, or I) to another (E, I, or R). This is a stochastic process that occurs with some probability $p_m$, unlike the deterministic dynamics presented in \eqref{eq:mosquito}. Agent disease progression is achieved through the following transition probabilities:
+
+\begin{equation} \label{eq:agents}
+    \begin{aligned}
+    \mathbb{P}(S_h\to E_h)&=1-e^{-\Delta t \lambda_{h,j}} \\
+    \mathbb{P}(E_h\to I_h)&=1-e^{-\Delta t \nu_h} \\
+    \mathbb{P}(I_h\to R_h)&=1-e^{-\Delta t \gamma},
+    \end{aligned}
+\end{equation}
+where $\Delta t$ is the time step amount (in days), $1/\nu_h$ is the average latent period for hosts, and 1/$\gamma$ is the average infectious period. This formulation transforms rate parameters into transition probabilities through the cumulative distribution function of the exponential distribution, assuming the time to infection is exponentially distributed. This stochastic disease progression of agents is implemented in the ABM by generating a uniform random number $\theta\sim U[0,1]$ and progressing the agent to the next disease state if $\theta < p_m$. The force of infection on hosts from vectors is given by:
+
+\begin{equation}
+    \lambda_{h,j}^{(k)}=\alpha_jb^{(k)}_h\cdot \beta_{hv} \cdot \left(\frac{I_v}{N_v}\right),
+\end{equation}
+where $\beta_{hv}$ is the probability of disease transmission from an infectious vector to a host. Accordingly, the force of infection on hosts is thus a function of the proportion of infectious mosquitoes in each patch. Due to varying exposure levels $\alpha_j$, the force of infection on hosts is specific to activities of agents, whereas the patch models of mosquitoes aggregate over all activities. The table in Appendix~\ref{appendix:manore-abm} lists all parameters used in the model, their definitions, and units.
+
+\paragraph{Agent movement model.} At each time step, agents may move from their current node to another node connected by an edge with the probability:
+
+\begin{equation}
+    \mathbb{P}(\text{move})=1-e^{-\Delta t\rho},
+\end{equation}
+where $\rho$ is the movement rate of the agent sampled from a probability distribution. Similar to the agent disease progression sub-model, a uniform random number $\theta\in[0,1]$ is generated at each time step for an agent, and if $\theta<\mathbb{P}(\text{move})$, the agent is relocated to any adjacent location uniformly at random.
+
+\subsubsection{Validation setup}
+
+To validate the replicated model, I conducted the same experiments as \citet{manore_network-patch_2015} and reproduced their figures to compare results qualitatively and quantitatively. The experiments in \citet{manore_network-patch_2015} used a three-patch model, such as the one in Figure~\ref{fig:manore-abm}, with four experiment scenarios: A baseline case with homogeneous patches, and low, medium, and high agent movement across heterogeneous patches. The purpose of establishing a homogenised baseline scenario is to assess the impact of heterogeneity across patches (i.e., uniform vector-to-host ratios versus varied ratios across patches). Across the three patches, 1,500 agents were distributed throughout 300 locations of a single activity with a vector exposure parameter of 1 (i.e., agents were always fully exposed to mosquito populations).
+
+In the heterogeneous patch scenario, the movement rate $\rho$ of agents was varied to investigate how mobility impacted disease spread. For each scenario, 100 model runs were simulated and used to compute distributions of the summary statistics examined by the original authors. These summary statistics were: (1) the total number of infected agents over the course of the simulation; (2) the timing of peak infections in the agent population; and (3) the number of infectious agents at the epidemic peak. The parameters for the experiments are described in Table~\ref{table:manore-validation-params}. All other constants used in the model are provided in Table~\ref{table:manore-validation-constants}.
+
+\begin{table}[!hp]
+    \centering
+    \begin{adjustbox}{center}
+        % \footnotesize
+        \begin{tabular}{ccc} \toprule
+            {Scenario} & {Parameter} & {Values across three patches} \\[.2cm] \midrule
+            \multirow{6}{*}{Baseline} & \multicolumn{1}{c}{$\sigma_h$} & \multicolumn{1}{c}{$(19, 19, 19)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$K_v$} & \multicolumn{1}{c}{$(1000,1000,1000)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{Patch densities} & \multicolumn{1}{c}{$(\frac{1}{3},\frac{1}{3},\frac{1}{3})$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$\rho\sim\text{Lognormal}$} & \multicolumn{1}{c}{$\mathbb{E}[\rho]=1,\text{Var}[\rho]=0.001$} \\[.2cm]\midrule
+            \multirow{6}{*}{\shortstack[c]{Heterogeneous patch,\\high movement}} & \multicolumn{1}{c}{$\sigma_h$} & \multicolumn{1}{c}{$(5, 19, 30)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$K_v$} & \multicolumn{1}{c}{$(750, 1500, 3750)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{Patch densities} & \multicolumn{1}{c}{$(\frac{1}{2},\frac{1}{3},\frac{1}{6})$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$\rho\sim\text{Lognormal}$} & \multicolumn{1}{c}{$\mathbb{E}[\rho]=1,\text{Var}[\rho]=0.001$} \\[.2cm]\midrule
+            \multirow{6}{*}{\shortstack[c]{Heterogeneous patch,\\medium movement}} & \multicolumn{1}{c}{$\sigma_h$} & \multicolumn{1}{c}{$(5, 19, 30)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$K_v$} & \multicolumn{1}{c}{$(750, 1500, 3750)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{Patch densities} & \multicolumn{1}{c}{$(\frac{1}{2},\frac{1}{3},\frac{1}{6})$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$\rho\sim\text{Lognormal}$} & \multicolumn{1}{c}{$\mathbb{E}[\rho]=0.1,\text{Var}[\rho]=0.001$} \\[.2cm]\midrule
+            \multirow{6}{*}{\shortstack[c]{Heterogeneous patch,\\low movement}} & \multicolumn{1}{c}{$\sigma_h$} & \multicolumn{1}{c}{$(5, 19, 30)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$K_v$} & \multicolumn{1}{c}{$(750, 1500, 3750)$} \\[.2cm]
+                                 & \multicolumn{1}{c}{Patch densities} & \multicolumn{1}{c}{$(\frac{1}{2},\frac{1}{3},\frac{1}{6})$} \\[.2cm]
+                                 & \multicolumn{1}{c}{$\rho\sim\text{Lognormal}$} & \multicolumn{1}{c}{$\mathbb{E}[\rho]=0.01,\text{Var}[\rho]=0.001$} \\[.2cm]\midrule
+            \multirow{13}{*}{All scenarios} & \multicolumn{1}{c}{Number of locations} & \multicolumn{1}{c}{300} \\[.2cm]
+                                 & \multicolumn{1}{c}{Human (agent) population} & \multicolumn{1}{c}{1500} \\[.2cm]
+                                 & \multicolumn{1}{c}{Initial infected proportion} & \multicolumn{1}{c}{0.005} \\[.2cm]
+                                 & \multicolumn{1}{c}{Simulation length} & \multicolumn{1}{c}{200 days} \\[.2cm]
+                                 & \multirow{2}{*}{Agent disease incubation rate} & \multicolumn{1}{c}{$\nu_h\sim\text{Lognormal}$} \\[.1cm]
+                                 & & \multicolumn{1}{c}{$\mathbb{E}[\nu_h]=1/5,\text{Var}[\nu_h]=0.001$} \\[.2cm]
+                                 & \multirow{2}{*}{Agent disease recovery rate} & \multicolumn{1}{c}{$\mu_h\sim\text{Lognormal}$} \\[.1cm]
+                                 & & \multicolumn{1}{c}{$\mathbb{E}[\mu_h]=1/6,\text{Var}[\mu_h]=0.001$} \\[.2cm]
+                                 & \multicolumn{1}{c}{ABM time step ($\Delta t$)} & \multicolumn{1}{c}{0.25 days} \\[.2cm]
+                                 & \multicolumn{1}{c}{ODE sub-model time step} & \multicolumn{1}{c}{0.005 days} \\[.2cm]
+            \bottomrule
+        \end{tabular}
+    \end{adjustbox}
+    \bcaption{Parameters used to validate the replicated model.}{$\sigma_h$ is the maximum number of bites sustainable by a host in one day. $K_v$ is the carrying capacity of mosquitoes in a patch. $\rho$ is the movement rate of agents and follows a log-normal distribution with an expected value, or mean, $\mathbb{E}[\rho]$, and variance $\text{Var}[\rho]$. Experiments and parameters are taken from \citet{manore_network-patch_2015}.}
+    \label{table:manore-validation-params}
+\end{table}
+
+\begin{table}[!htbp]
+    \centering
+    \begin{adjustbox}{center}
+        % \footnotesize
+        \begin{tabular}{clc} \toprule
+            {Parameter} & {Definition} & {Value (same across all patches)} \\ \midrule
+            $\psi_v$ & Emergence rate of vectors & 0.3 \\
+            $\sigma_v$ & Maximum bites per vector per day & 0.5 \\
+            $\beta_{hv}$ & Probability of vector-to-host transmission & 0.33 \\
+            $\beta_{vh}$ & Probability of host-to-vector transmission & 0.33 \\
+            $\nu_v$ & Vector incubation rate & 0.1 \\
+            $\mu_v$ & Vector death rate & $\frac{1}{14}$ \\
+            $r_v$ & Intrinsic vector growth rate & $\psi_v - \mu_v$ \\
+            \bottomrule
+        \end{tabular}
+    \end{adjustbox}
+    \bcaption{Parameter constants used in the model for validation experiments.}{Adapted from \citet{manore_network-patch_2015}.}
+    \label{table:manore-validation-constants}
+\end{table}
+
+\begin{figure}[htbp]
+    \vspace{-2cm}
+     \centering
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=0.8\textwidth]{figures/ch3/manore_1.png}
+         \caption{\textbf{Original}}
+         \label{fig:validation-1i}
+     \end{subfigure}%
+     \\
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=.8\textwidth]{figures/ch3/validation_scaled.pdf}
+         \caption{\textbf{Replicated (scaled $y$-axis)}}
+         \label{fig:validation-1ii}
+     \end{subfigure}%
+     \\
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=.8\textwidth]{figures/ch3/validation_unscaled.pdf}
+         \caption{\textbf{Replicated (unscaled $y$-axis)}}
+         \label{fig:validation-1iii}
+     \end{subfigure}%
+    \bcaption{Distribution of infected agents over simulation for each scenario.}{\textbf{(i)} Results taken from \citet{manore_network-patch_2015} (figure 3 in original paper). \textbf{(ii)} Results from replicated model with the $y$-axis scaled to original figure. \textbf{(iii)} Results from replicated model with unscaled y-axis. Each scenario was run 100 times to mitigate uncertainty from stochasticity.}
+    \label{fig:validation-1}
+\end{figure}
+
+\begin{figure}[htbp]
+     \centering
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{figures/ch3/manore_2.png}
+         \caption{\textbf{Original}}
+         \label{fig:validation-2i}
+     \end{subfigure}%
+     \\
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{figures/ch3/validation_2.pdf}
+         \caption{\textbf{Replicated}}
+         \label{fig:validation-2ii}
+     \end{subfigure}%
+    \bcaption{Distribution of epidemic peak timings across patches.}{\textbf{(i)} Results taken from \citet{manore_network-patch_2015} (figure 6 in original paper). \textbf{(ii)} Results from replicated model. \q{V/H} means vector-to-host ratio.}
+    \label{fig:validation-2}
+\end{figure}
+
+\begin{figure}[htbp]
+     \centering
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{figures/ch3/manore_3.png}
+         \caption{\textbf{Original}}
+         \label{fig:validation-3i}
+     \end{subfigure}%
+     \\
+     \begin{subfigure}[b]{\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{figures/ch3/validation_3.pdf}
+         \caption{\textbf{Replicated}}
+         \label{fig:validation-3ii}
+     \end{subfigure}%
+    \bcaption{Distributions of infected agents during epidemic peaks for each scenario.}{\textbf{(i)} Results taken from \citet{manore_network-patch_2015} (figure 7 in original paper). \textbf{(ii)} Results from replicated model. \q{V/H} means vector-to-host ratio.}
+    \label{fig:validation-3}
+\end{figure}
+
+
+\subsection{Validation}
+
+\subsubsection{Results}
+
+Here, I present the findings from the experiments described above and reproduce three figures from \citet{manore_network-patch_2015} to demonstrate the reproduction of the results from the original study with the replicated model. A central finding from the original paper was that heterogeneous patches with medium and high agent movement rates led to higher infection counts over simulations when compared to the baseline scenario. This occurred because in the heterogeneous scenarios, the highest-risk patch (with a mosquito population of $K_v^{(3)}=3750$) was visited more often by agents due to higher movement rates, increasing the spread of infection. The original figure from \citet{manore_network-patch_2015} exhibiting these results is shown in Figure~\ref{fig:validation-1i}, and my own findings in Figure~\ref{fig:validation-1ii} and Figure~\ref{fig:validation-1iii} also demonstrate this relationship\footnote{To align with the original authors, I plot results using kernel density estimation via the Python \textit{seaborn} \cite{waskom_seaborn_2021} library and use the \texttt{kdeplot} function with a smoothing parameter of $\texttt{bw\_adjust}=.55$.}.
+
+As the underlying distributions for Figure~\ref{fig:validation-1i} were not provided in the original paper, I used the scientific imaging software ImageJ \cite{schneider_nih_2012} to estimate peak infection count values from the figure for comparison with the replicated model results. As shown in Table~\ref{tab:peak-alignment}, the absolute relative errors for peak agent infections produced from the replicated model runs compared to the original model across all scenarios were always below 2\%. Overall, this demonstrates the alignment in results of the two models with respect to the maximum total infected agents.
+
+\begin{table}[h]
+    \centering
+    \begin{adjustbox}{center}
+        \begin{tabular}{cccc} \toprule
+            {} & \multicolumn{3}{c}{Maximum number of infected agents} \\
+            {Scenario} & {Original model (estimated)} & {Replicated model} & {Relative error} \\ \midrule
+            Baseline & 1181 & 1189 & 0.68\% \\
+            Low movement & 939 & 921& -1.92\% \\
+            Medium movement & 1391& 1396& 0.36\% \\
+            High movement & 1441& 1447 & 0.42\% \\ \bottomrule
+        \end{tabular}
+    \end{adjustbox}
+    \bcaption{Comparison of maximum infected agents per scenario.}{Original model figures were estimated using ImageJ \cite{schneider_nih_2012}.}
+    \label{tab:peak-alignment}
+\end{table}
+
+Heterogeneity between patches also explains variation in the timings of peak infections across patches. As results from \citet{manore_network-patch_2015} demonstrate in Figure~\ref{fig:validation-2i}, the highest-risk patch tends to have the earliest peak infections for low and medium movement rates. This is in contrast to the high movement scenario, in which agents traverse the network so thoroughly that infection peaks are roughly equivalent across all the patches. These findings are reiterated in the results from my replicated model shown in Figure~\ref{fig:validation-2ii}.  \\
+
+As \citet{manore_network-patch_2015} observed, there was a trade-off around the risk of a patch (in terms of its vector-to-host ratio) and the accessibility of a patch (in terms of nodes or locations). Figure~\ref{fig:validation-3} highlights how the number of infectious agents during epidemic peaks varied with each experiment scenario. As expected, agents were roughly equally infected in the homogeneous baseline scenario. In the heterogeneous, low movement scenario, since agents with low mobility tended to remain in their patches, the magnitude of infectious agents at epidemic peaks aligned with the risk of each patch. In the high movement scenario, however, this ordering was reversed---when agents have high mobility, they were sufficiently dispersed across all nodes and exposed to infectious forces from all patches. Therefore, the patch with the most locations, and thus agents (the low vector-to-host ratio patch) had the highest number of infectious agents at its epidemic peak.
+
+\subsubsection{Discussion}
+
+The results above convey the alignment of the replicated model with the one described in \citet{manore_network-patch_2015}. First, the reproduced figures demonstrate that the replicated model reproduces the same relationships between salient summary statistics across various scenarios. Second, the reproduced results reiterate the core finding of \citet{manore_network-patch_2015} described in Section~\ref{sec:baseline-model-description} that the model can capture the impacts of heterogeneity on VBD spread. As demonstrated, this is achieved through variation in host mobility patterns and geographical characteristics of environments, which are factors that impact VBD spread in real life \cite{musili_modeling_2024, pepey_mobility_2022}. Ultimately, this validation provides confidence in the replicated model's correctness to be used as a flexible and extendable baseline model.
+
+It should be noted, however, that there are limitations to this model. First, the ODE representation of mosquito populations homogenises mosquito dynamics in patches. As the results for the baseline case demonstrate, when all patches are sufficiently similar, the model resembles well-mixed dynamics, arguably defeating the purpose of the agent-based approach. However, as mentioned, simulating vectors as agents is often computationally infeasible with little data available for informing such a representation \cite{jacintho_agent-based_2010, maneerat_spatial_2016, de_mooij_framework_2023}. Second, VBD spread in the model resembles that of an outbreak, whereas VBDs are often endemic in communities with seasonal variation, particularly in South-East Asia \cite{bhatia_vector-borne_2014}. Despite this, other studies have modelled VBDs as outbreaks \cite{tabares_comparing_2024}, and VBD activity in areas with little to no pre-existing exposure would likely lead to the outbreak patterns reproduced by the model. Finally, exposure during host travel between nodes and patches is not considered in the model, although evidence suggests a high risk of infection during travel \cite{pepey_mobility_2022, sandfort_forest_2020}.
+
+Despite these above limitations, the simplifying assumptions used in this model serve to focus on the dynamics that are relevant to this thesis---preventive behaviours and VBD spread. As \citet{manore_network-patch_2015} highlight themselves, there is a need to \q{adapt ABMs with detailed host activity, behaviour, social, demographic, and geographical data \dots as a step toward creating \dots mitigation strategies.} The following two chapters make progress towards these gaps by parameterising the baseline model to a real-world scenario and extending the ABM with additional features, prior to integrating theories of behaviour change.

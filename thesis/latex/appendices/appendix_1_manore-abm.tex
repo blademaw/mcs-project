@@ -1,0 +1,26 @@
+\section{Baseline model parameters}\label{appendix:manore-abm}
+
+\begin{table}[h]
+    \centering
+    \begin{adjustbox}{center}
+        \footnotesize
+        \begin{tabular}{cll} \toprule
+            {Parameter} & {Description} & {Units} \\ \midrule
+            $\psi_v$  & Per-capita emergence rate of vectors & time$^{-1}$ \\
+            $\mu_v$  & Per-capita death rate of vectors  & time$^{-1}$ \\
+            $\mu_h$  & Per-capita death rate of hosts  & time$^{-1}$ \\
+            $r_v$  & Intrinsic growth rate of vectors & time$^{-1}$ \\
+            $K_v$  & Carrying capacity of vectors in the patch  & vectors \\
+            $\sigma_v$  & Ideal number of bites per vector per unit time if hosts were freely available & bites$\cdot$vectors$^{-1}\cdot$time$^{-1}$ \\
+            $\sigma_h$  & Maximum number of bites a host can sustain per time & bites$\cdot$hosts$^{-1}\cdot$time$^{-1}$ \\
+            $\beta_{vh}$  & Probability of transmission from an infectious host to a susceptible vector  & dimensionless \\
+            $\beta_{hv}$  & Probability of transmission from an infectious vector to a susceptible host  & dimensionless \\
+            $\nu_v$  & Rate of vector progression from the exposed (E) state to the infectious (I) state  & time$^{-1}$ \\
+            $\nu_h$  & Rate of host progression from the exposed (E) state to the infectious (I) state  & time$^{-1}$ \\
+            $\gamma$ & Rate of recovery for hosts & time$^{-1}$ \\
+            $\rho$ & Movement rate of agents & time$^{-1}$ \\ \bottomrule
+        \end{tabular}
+    \end{adjustbox}
+    \bcaption{Parameters for the baseline model.}{Adapted and expanded from \citet{manore_network-patch_2015}.}
+    \label{table:manore-params}
+\end{table}

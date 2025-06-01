@@ -1,0 +1,250 @@
+\documentclass[a4paper, titlepage, 12pt]{article}
+
+% ------------------------------------------------------------
+% LATEX SETUP
+% ------------------------------------------------------------
+% padding
+\usepackage[left=3cm, right=3cm, top=3cm, bottom=3cm]{geometry}
+
+% input packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{blindtext}
+\usepackage{nameref} % cross-referencing sections by name
+
+% layout of ToC & appendix
+\usepackage[toc,titletoc,title]{appendix}
+
+% better tables
+\usepackage{booktabs}
+\usepackage{multirow}
+
+\usepackage{printlen}
+
+% math stuff
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{derivative}
+
+% hyphenation, highlighting, URLs, spacing
+\usepackage{setspace}
+\usepackage{soul}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{makecell}
+\usepackage[hidelinks]{hyperref}
+\usepackage{adjustbox}
+\usepackage{csquotes}
+
+% Graphics and TikZ stuff
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta,positioning}
+
+% better captioning
+\usepackage{caption}
+\usepackage{subcaption}
+% \usetikzlibrary{calc}
+
+% TikZ settings
+\usetikzlibrary{intersections}
+\tikzset{>=latex}
+\tikzstyle{curve}=[very thick,line cap=round]
+\pgfdeclarelayer{back} % to draw on background
+\pgfsetlayers{back,main} % set order
+\usepackage{ifthen}
+\usetikzlibrary{shapes.geometric}
+
+% set up captions the way I like
+\captionsetup[figure]{font=small, labelfont=bf, labelsep=period}
+\captionsetup[table]{font=small, labelfont=bf, labelsep=period}
+% \newcommand{\bcaption}[2]{\caption{\textbf{#1} #2}}
+\newcommand{\bcaption}[2]{\caption[#1]{\textbf{#1} #2}}
+
+% define custom SIR colours
+\definecolor{s-color}{HTML}{41949A}
+\definecolor{i-color}{HTML}{E56E5A}
+\definecolor{r-color}{HTML}{7384BB}
+
+% prefer roman numeral subfigures
+\renewcommand\thesubfigure{\roman{subfigure}}
+
+% TODO notes stuff
+\setlength {\marginparwidth}{2cm}
+\usepackage[textwidth=2.5cm]{todonotes} % add argument 'disable' to disable
+
+% redefine the \todo command to always have small text and 0.5 spacing
+\makeatletter
+\renewcommand{\todo}[2][]{%
+    \@todo[size=small, caption={#2}, #1]{\begin{spacing}{0.5}#2\end{spacing}}%
+} 
+\makeatother 
+
+% enable highlighting of specific words with notes
+\makeatletter
+ \if@todonotes@disabled
+ \newcommand{\hlnote}[2]{#1}
+ \else
+ \newcommand{\hlnote}[2]{\todo{#2}\texthl{#1}}
+ \fi
+\makeatother
+
+% stop texcount from counting the words in todonotes.
+%TC:macro \todo 1
+%TC:macro \hlnote 2
+
+% configure references
+\usepackage[bibstyle=ieee, citestyle=numeric-comp, url=false]{biblatex}
+\newcommand{\citet}{\textcite}
+\addbibresource{refs.bib}
+\renewcommand*{\bibfont}{\small}
+
+% use microtype for better formatting (apparently)
+\AtBeginEnvironment{quote}{\par\singlespacing\small}
+\usepackage{microtype}
+
+% create macro for quotations
+\newcommand{\q}[1]{``#1''}
+
+% create macro for ODD protocol
+\newcommand{\odd}[1]{
+\vspace{.5cm}
+\textit{#1}
+\vspace{.5cm}
+}
+
+% present objectives nicely
+\newlist{objectives}{enumerate}{2}
+\setlist[objectives,1]{label=\textbf{Objective \arabic*.},ref=\arabic*}
+\setlist[objectives,2]{label=(\alph*),ref=\thequestionsi(\alph*)}
+
+% use 1.5 line spacing as outlined in rubric
+\onehalfspacing
+
+
+% ------------------------------------------------------------
+% DOCUMENT SETUP
+% ------------------------------------------------------------
+% title
+\newcommand{\thesisTitle}{Simulating the Effects of Human Behaviour on Vector-borne Disease Spread with Agent-based Modelling}
+
+% name
+\newcommand{\name}{Jack Oliver}
+
+% school
+\newcommand{\timeFrame}{School of Computing and Information Systems}
+\newcommand{\school}{The University of Melbourne}
+
+% supervisors
+\newcommand{\supervisor}{Associate Professor Nic Geard}
+\newcommand{\advisor}{Dr Cameron Zachreson}
+
+% ------------------------------------------------------------
+% TITLE PAGE
+% ------------------------------------------------------------
+\begin{document}
+
+%TC:ignore
+\begin{singlespace} % single spacing for the cover page
+\begin{titlepage}
+\begin{center}
+\vspace*{1.5cm}
+
+\Large{\textbf{\thesisTitle}}
+\vspace{2.5cm}
+
+\large{by \name { }(1389498)} \\
+\vspace{2cm}
+
+\large{A final report submitted for the Master of Computer Science minor thesis component \\}
+\vspace{.5cm}
+
+\large{in the} \\
+\large{\timeFrame} \\ 
+\large{\textbf{\school}}
+\vspace{2cm}
+
+\large{\textbf{Primary Supervisor}}\\
+\supervisor\\
+\vspace{1.5cm}
+
+\textbf{Co-Supervisor}\\
+\advisor\\
+\end{center}
+\end{titlepage}
+\end{singlespace}
+
+% ------------------------------------------------------------
+% FRONT MATTER
+% ------------------------------------------------------------
+\pagenumbering{roman}
+
+\input{chapters/0_forewords.tex}
+\clearpage
+
+\begin{spacing}{1.25} % custom-spaced ToC; adjust as necessary
+    \tableofcontents
+\end{spacing}
+\clearpage
+
+{
+\footnotesize
+\listoftables
+}
+\clearpage
+
+{
+\footnotesize
+\listoffigures
+}
+\clearpage
+
+
+% ------------------------------------------------------------
+% MAIN MATTER
+% ------------------------------------------------------------
+\pagenumbering{arabic}
+%TC:endignore
+
+\input{chapters/1_introduction}
+\clearpage
+
+\input{chapters/2_related_work}
+\clearpage
+
+\input{chapters/3_baseline_model}
+\clearpage
+
+\input{chapters/4_extended_model}
+\clearpage
+
+\input{chapters/5_bcts}
+\clearpage
+
+\input{chapters/6_discussion}
+\clearpage
+
+\input{chapters/7_conclusion}
+\clearpage
+
+%TC:ignore
+\begin{singlespace}
+\printbibliography[heading=bibintoc]
+\end{singlespace}
+\clearpage
+
+
+% ------------------------------------------------------------
+% BACK MATTER
+% ------------------------------------------------------------
+\appendix
+\appendixpage
+\input{appendices/appendix_1_manore-abm}
+
+\clearpage
+\input{appendices/appendix-2-suppl-figures}
+%TC:endignore
+
+\end{document}
